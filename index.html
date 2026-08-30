@@ -4,23 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#16122c" />
-    <title>Buildtopia — Tiny Sky Sandbox</title>
-    <link rel="stylesheet" href="styles/main.css?v=20260830" />
+    <title>Buildtopia — Sign in</title>
+    <link rel="stylesheet" href="main.css?v=20260830" />
   </head>
-  <body>
-    <main class="game-shell">
-      <canvas id="game" aria-label="Buildtopia game canvas" tabindex="0"></canvas>
-      <button class="shop-button" id="shop-button" type="button" aria-expanded="false" hidden>
-        Sky Market
-      </button>
-      <section class="intro-card" id="intro-card" aria-live="polite">
-        <p class="eyebrow">SINGLE-PLAYER SANDBOX</p>
-        <h1>Buildtopia</h1>
-        <p>Mine, plant, grow, and build a tiny world under a painted sky.</p>
-        <button id="play-button">Start exploring</button>
+  <body class="portal-page">
+    <main class="portal-shell">
+      <section class="portal-card" aria-labelledby="portal-title">
+        <p class="eyebrow">SHARED SKY SANDBOX</p>
+        <h1 id="portal-title">Buildtopia</h1>
+        <p class="portal-copy">Your account follows you into every world.</p>
+        <div class="auth-tabs" role="tablist" aria-label="Account options">
+          <button class="tab-button is-active" id="login-tab" type="button" role="tab" aria-selected="true">Log in</button>
+          <button class="tab-button" id="signup-tab" type="button" role="tab" aria-selected="false">Sign up</button>
+        </div>
+        <form id="auth-form" class="portal-form" novalidate>
+          <label>Username<input id="username" name="username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required /></label>
+          <label>Password<input id="password" name="password" type="password" autocomplete="current-password" minlength="6" required /></label>
+          <button id="auth-submit" type="submit">Log in</button>
+        </form>
+        <p class="form-note">Usernames use 3–20 letters, numbers, or underscores.</p>
+        <p id="auth-status" class="status-message" role="status"></p>
       </section>
     </main>
-
-    <script type="module" src="scripts/main.js?v=20260830"></script>
+    <script type="module" src="auth.js?v=20260830"></script>
   </body>
 </html>

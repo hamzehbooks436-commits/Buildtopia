@@ -1,0 +1,102 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #100d22;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  background: #100d22;
+}
+
+.game-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  outline: none;
+}
+
+.shop-button {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  z-index: 2;
+  min-width: 106px;
+  padding: 10px 15px;
+  color: #fff6c9;
+  background: linear-gradient(180deg, #6d4a92, #392754);
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 12px;
+  box-shadow: 0 5px 0 rgba(15, 8, 31, .38);
+}
+
+.shop-button:hover { filter: brightness(1.12); }
+.shop-button[aria-expanded="true"] { background: linear-gradient(180deg, #b56f9e, #69405f); }
+
+.intro-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 40px));
+  padding: 30px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  color: #fff9ff;
+  background: linear-gradient(145deg, rgba(29, 23, 60, .96), rgba(18, 14, 42, .94));
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(5, 2, 20, .52);
+}
+
+.intro-card.is-hidden { display: none; }
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #e2adff;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2.8rem, 10vw, 4.5rem);
+  line-height: .95;
+  letter-spacing: -.07em;
+}
+
+.intro-card p:not(.eyebrow) {
+  margin: 18px auto 23px;
+  max-width: 300px;
+  color: #d9d2ef;
+  line-height: 1.5;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 20px;
+  color: #17102c;
+  background: #f3c8ff;
+  box-shadow: inset 0 -3px 0 rgba(105, 52, 133, .25);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+button:hover { filter: brightness(1.07); }

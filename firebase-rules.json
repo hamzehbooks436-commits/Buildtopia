@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "usernames": {
+      "$username": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.val() == auth.uid"
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "worlds": {
+      "$world": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

@@ -1,11 +1,11 @@
 // Paste the Firebase Web configuration from Project settings > Your apps here.
 // These values identify the project; do not put a Firebase Admin SDK key in this file.
 export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://PASTE_YOUR_DATABASE_URL",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID",
+  apiKey: "AIzaSyDuQerXTZapl_vsqrbag_UQAYxPIujg26w",
+  authDomain: "buildtopia-f6b73.firebaseapp.com",
+  databaseURL: "https://buildtopia-f6b73-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "buildtopia-f6b73",
+  storageBucket: "buildtopia-f6b73.firebasestorage.app",
+  messagingSenderId: "219508635629",
+  appId: "1:219508635629:web:e25e864e68dda422de19e4",
 };

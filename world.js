@@ -1,6 +1,10 @@
 import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 import { TILE_DEFS, isSolid } from "./definitions.js";
 
+const FLOWER_GROW_INTERVAL = 3600000;
+const FLOWERS_PER_GROWTH = 5;
+const MAX_FLOWERS = 20;
+
 export class World {
   constructor() {
     this.width = WORLD_WIDTH;
@@ -9,6 +13,8 @@ export class World {
     this.background = new Int16Array(this.width * this.height);
     this.plantedTiles = [];
     this.surface = new Int16Array(this.width);
+    this.flowerGrownAt = Date.now();
+    this.naturalFlowers = [];
   }
 
   index(x, y) { return y * this.width + x; }
@@ -43,12 +49,34 @@ export class World {
     return grew;
   }
 
+  // Every hour a handful of flowers sprout on empty surface tiles. The cap only
+  // applies to these wild flowers — flowers planted by players never count.
+  updateFlowers(now = Date.now()) {
+    if (now - this.flowerGrownAt < FLOWER_GROW_INTERVAL) return 0;
+    this.flowerGrownAt = now;
+    this.naturalFlowers = (this.naturalFlowers ?? []).filter((flower) => {
+      const tileId = this.get(flower.x, flower.y);
+      return tileId >= 40 && tileId <= 43;
+    });
+    const target = Math.min(FLOWERS_PER_GROWTH, MAX_FLOWERS - this.naturalFlowers.length);
+    let grown = 0, attempts = 0;
+    while (grown < target && attempts < 500) {
+      attempts += 1;
+      const x = 1 + Math.floor(Math.random() * (this.width - 2));
+      const y = this.surface[x] - 1;
+      if (y >= 0 && this.get(x, y) === 0) { this.set(x, y, 40 + Math.floor(Math.random() * 4)); this.naturalFlowers.push({ x, y }); grown += 1; }
+    }
+    return grown;
+  }
+
   serialize() {
     return {
       foreground: Array.from(this.foreground),
       background: Array.from(this.background),
       plantedTiles: this.plantedTiles,
       surface: Array.from(this.surface),
+      flowerGrownAt: this.flowerGrownAt,
+      naturalFlowers: this.naturalFlowers,
     };
   }
 
@@ -60,6 +88,8 @@ export class World {
     if (Array.isArray(data.surface) && data.surface.length === world.surface.length) world.surface.set(data.surface);
     else world.rebuildSurface();
     world.plantedTiles = Array.isArray(data.plantedTiles) ? data.plantedTiles.filter((plant) => world.inBounds(plant.x, plant.y)) : [];
+    world.flowerGrownAt = Number.isFinite(data.flowerGrownAt) ? data.flowerGrownAt : Date.now();
+    world.naturalFlowers = Array.isArray(data.naturalFlowers) ? data.naturalFlowers.filter((flower) => world.inBounds(flower.x, flower.y)) : [];
     world.cleanupLegacyTiles();
     world.updatePlants();
     return world;
@@ -101,6 +131,7 @@ export function generateWorld() {
     }
   }
 
+  world.set(16, world.surface[16] - 1, 6);
   world.set(20, world.surface[20] - 1, 20);
   world.set(21, world.surface[21] - 1, 20);
   for (let x = 1; x < world.width - 1; x += 1) {

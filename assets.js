@@ -84,6 +84,22 @@ function createTileAtlas() {
     return speckle(x, y, "#403c55", "#35314a", "#4b4766", 17);
   });
 
+  // White Door [314,40,18,18]
+  paint([314, 40, 18, 18], (x, y) => {
+    if (x === 0 || x === 17 || y === 0 || y === 17) return "#8d89a0";
+    if (x === 13 && y === 9) return "#d9a72e";
+    if (x === 2 || x === 15 || y === 2 || y === 15) return "#c2bed4";
+    return speckle(x, y, "#f4f2fa", "#e6e2f0", "#ffffff", 29);
+  });
+
+  // World Lock [314,64,18,18]
+  paint([314, 64, 18, 18], (x, y) => {
+    if (x === 0 || x === 17 || y === 0 || y === 17) return "#c99a32";
+    if ((y === 2 || y === 3) && x >= 5 && x <= 12 && (x <= 6 || x >= 11)) return "#8a6420";
+    if (Math.hypot(x - 8.5, y - 10) < 2.2) return "#8a6420";
+    return speckle(x, y, "#f2c14e", "#d9a72e", "#ffe08a", 25);
+  });
+
   // Clay [84,40,20,20]
   blockArt([84, 40, 20, 20], ["#a8a4b8", "#8d89a0", "#c2bed0"], 3);
 

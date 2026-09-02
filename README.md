@@ -24,7 +24,9 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **Hold click / touch a block** — mine or harvest
 - **Right click**, **E**, or **PLACE** — place the selected item
 - **1–5** — select a hotbar slot
-- **I** or **Bag** — open the bag (the other 15 inventory slots)
+- **Mouse wheel** or **+/-** — zoom in and out (you stay centered)
+- **Click a White Door** — return to the World Gate (the door is also your respawn point)
+- **I** or **Inventory** — open the inventory (the other 15+ slots)
 - **Sky Market** — open the shop
 - **World Gate** — save and return to the world-picker page
 

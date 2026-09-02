@@ -7,6 +7,8 @@ export const TILE_DEFS = {
   3: { name: "Bedrock", solid: true, unbreakable: true, color: "#403c55", sprite: [314, 286, 18, 18] },
   4: { name: "Clay", solid: true, breakTime: 700, drops: [{ item: "clay_seed", count: 1, chance: .35 }, { item: "clay_block", count: 1, chance: .2 }], color: "#a8a4b8", sprite: [84, 40, 20, 20] },
   5: { name: "Lava", solid: false, breakTime: 1600, drops: [{ item: "lava_seed", count: 1, chance: .35 }, { item: "lava_block", count: 1, chance: .2 }], color: "#e06a2a", sprite: [139, 40, 20, 20] },
+  6: { name: "White Door", solid: false, unbreakable: true, door: true, color: "#e8e6f2", sprite: [314, 40, 18, 18] },
+  7: { name: "World Lock", solid: true, breakTime: 800, drops: [{ item: "world_lock", count: 1 }], color: "#f2c14e", sprite: [314, 64, 18, 18] },
 
   10: { name: "Dirt Seed", solid: false, breakTime: 180, drops: [{ item: "dirt_seed", count: 1 }], growTime: 30000, growsInto: 20, color: "#75bd62", sprite: [3, 193, 18, 18] },
   11: { name: "Moonflower Seed", solid: false, breakTime: 180, drops: [{ item: "moon_seed", count: 1 }], growTime: 45000, growsInto: 21, color: "#82b4df", sprite: [4, 223, 18, 18] },
@@ -83,13 +85,19 @@ export const ITEM_DEFS = {
   green_block: { name: "Green Block", placesTile: 52, color: "#6fbf78", sprite: [52, 90, 20, 20], description: "A colorful building block." },
   yellow_block: { name: "Yellow Block", placesTile: 53, color: "#e0c85e", sprite: [76, 90, 20, 20], description: "A colorful building block." },
   gems: { name: "Sky Gems", currency: true, color: "#ffdf5f", sprite: [326, 46, 18, 18], description: "Spend these in the Sky Market." },
+  white_door: { name: "White Door", placesTile: 6, color: "#f4f2fa", sprite: [314, 40, 18, 18], description: "Click it to return to the World Gate. You respawn here." },
+  world_lock: { name: "World Lock", placesTile: 7, color: "#f2c14e", sprite: [314, 64, 18, 18], description: "Locks a world so only you can build or break in it." },
 };
+
+export const SLOT_UPGRADE = { item: "inventory_slots", amount: 5, cost: 500 };
 
 export const SHOP_ITEMS = [
   { item: "dirt_seed", amount: 2, cost: 2 },
   { item: "moon_seed", amount: 1, cost: 7 },
   { item: "dirt_block", amount: 4, cost: 4 },
   { item: "rock", amount: 2, cost: 6 },
+  SLOT_UPGRADE,
+  { item: "world_lock", amount: 1, cost: 15000 },
 ];
 
 export function isSolid(tileId) {

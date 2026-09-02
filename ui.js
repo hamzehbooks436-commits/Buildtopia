@@ -161,7 +161,7 @@ export function drawHotbar(ctx, assets, inventory, selectedSlot, width, height) 
   }
 }
 
-export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, height) {
+export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, height, drag = null) {
   const columns = 5;
   const gap = 7;
   const rows = Math.ceil(inventory.length / columns);
@@ -180,20 +180,33 @@ export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, 
   ctx.fillStyle = "#e2adff";
   ctx.font = "800 11px system-ui";
   ctx.textAlign = "left";
-  ctx.fillText("BAG", left - 4, top - 24 < 18 ? top - 2 : top - 22);
+  ctx.fillText("INVENTORY", left - 4, top - 24 < 18 ? top - 2 : top - 22);
   const slots = [];
   for (let index = 0; index < inventory.length; index += 1) {
     const x = left + (index % columns) * (slotSize + gap);
     const y = top + Math.floor(index / columns) * (slotSize + gap);
     drawSlot(ctx, assets, inventory, index, x, y, slotSize, index === selectedSlot);
+    if (drag && index === drag.from) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffe77a";
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(x + 2, y + 2, slotSize - 4, slotSize - 4);
+      ctx.setLineDash([]);
+    }
     slots.push({ x, y, size: slotSize, index });
+  }
+  if (drag && drag.from >= 0 && inventory[drag.from]) {
+    ctx.save();
+    ctx.globalAlpha = .85;
+    drawItemIcon(ctx, assets, inventory[drag.from].itemId, drag.pointer.x - slotSize / 2, drag.pointer.y - slotSize / 2, slotSize);
+    ctx.restore();
   }
   ctx.restore();
   return { slots, x: left - 14, y: top - 14, width: gridWidth + 28, height: rows * slotSize + (rows - 1) * gap + 28 };
 }
 
 export function drawHud(ctx, assets, state, width) {
-  const { inventory, selectedSlot, toast, target, breaking, worldName, online } = state;
+  const { inventory, selectedSlot, toast, target, breaking, worldName, online, lavaHits } = state;
   const selected = inventory[selectedSlot];
   ctx.save();
   ctx.fillStyle = "rgba(20, 14, 46, .74)";
@@ -216,6 +229,24 @@ export function drawHud(ctx, assets, state, width) {
   ctx.fillStyle = "#fff3ad";
   ctx.font = "800 16px system-ui";
   ctx.fillText(`${gems} gems`, width - 82, 43);
+
+  const lives = 4 - (lavaHits ?? 0);
+  for (let index = 0; index < 4; index += 1) {
+    const hx = width - 122 + 10 + index * 24;
+    const hy = 66;
+    ctx.fillStyle = index < lives ? "rgba(20, 14, 46, .74)" : "rgba(20, 14, 46, .4)";
+    roundedRect(ctx, hx - 4, hy - 3, 20, 18, 6);
+    ctx.fill();
+    ctx.fillStyle = index < lives ? "#ff5a5a" : "rgba(255, 255, 255, .22)";
+    ctx.beginPath();
+    ctx.arc(hx + 5, hy + 6, 3.4, 0, Math.PI * 2);
+    ctx.arc(hx + 11, hy + 6, 3.4, 0, Math.PI * 2);
+    ctx.moveTo(hx + 1.6, hy + 7.4);
+    ctx.lineTo(hx + 8, hy + 14);
+    ctx.lineTo(hx + 14.4, hy + 7.4);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   if (selected) {
     ctx.fillStyle = "rgba(20, 14, 46, .74)";
@@ -265,10 +296,12 @@ export function drawShop(ctx, assets, inventory, width, height) {
   ctx.fillStyle = "rgba(8, 5, 22, .58)";
   ctx.fillRect(0, 0, width, height);
   const panelWidth = Math.min(570, width - 36);
+  const rows = Math.ceil(SHOP_ITEMS.length / 2);
+  const panelHeight = 111 + (rows - 1) * 93 + 75 + 30;
   const x = (width - panelWidth) / 2;
-  const y = Math.max(70, (height - 365) / 2);
+  const y = Math.max(60, (height - panelHeight - 40) / 2);
   ctx.fillStyle = "#23183f";
-  roundedRect(ctx, x, y, panelWidth, 330, 22);
+  roundedRect(ctx, x, y, panelWidth, panelHeight, 22);
   ctx.fill();
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(255,255,255,.25)";
@@ -291,14 +324,31 @@ export function drawShop(ctx, assets, inventory, width, height) {
     ctx.fillStyle = "#332451";
     roundedRect(ctx, cardX, cardY, cardWidth, 75, 14);
     ctx.fill();
-    drawItemIcon(ctx, assets, offer.item, cardX + 12, cardY + 14, 46);
-    ctx.fillStyle = "#fff";
-    ctx.font = "800 14px system-ui";
-    ctx.textAlign = "left";
-    ctx.fillText(`${offer.amount}× ${ITEM_DEFS[offer.item].name}`, cardX + 68, cardY + 30);
+    if (offer.item === "inventory_slots") {
+      ctx.fillStyle = "#6d4a92";
+      roundedRect(ctx, cardX + 14, cardY + 14, 44, 48, 12);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = "#ffe77a";
+      ctx.font = "800 26px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("+", cardX + 36, cardY + 48);
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 14px system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText(`+${offer.amount} Inventory Slots`, cardX + 68, cardY + 30);
+    } else {
+      drawItemIcon(ctx, assets, offer.item, cardX + 12, cardY + 14, 46);
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 14px system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText(`${offer.amount}× ${ITEM_DEFS[offer.item].name}`, cardX + 68, cardY + 30);
+    }
     ctx.fillStyle = "#ffe77a";
     ctx.font = "700 12px system-ui";
-    ctx.fillText(`${offer.cost} gems`, cardX + 68, cardY + 51);
+    ctx.fillText(`${offer.cost.toLocaleString()} gems`, cardX + 68, cardY + 51);
     ctx.fillStyle = "#c4b6e0";
     ctx.font = "700 11px system-ui";
     ctx.fillText(`Click to buy`, cardX + 68, cardY + 67);

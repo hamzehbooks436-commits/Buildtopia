@@ -60,8 +60,21 @@ export class World {
     if (Array.isArray(data.surface) && data.surface.length === world.surface.length) world.surface.set(data.surface);
     else world.rebuildSurface();
     world.plantedTiles = Array.isArray(data.plantedTiles) ? data.plantedTiles.filter((plant) => world.inBounds(plant.x, plant.y)) : [];
+    world.cleanupLegacyTiles();
     world.updatePlants();
     return world;
+  }
+
+  // Older saves kept faint background blocks floating above the terrain and the
+  // retired Sky Market tile; both are stripped whenever a world is loaded.
+  cleanupLegacyTiles() {
+    for (let x = 0; x < this.width; x += 1) {
+      for (let y = 0; y < this.surface[x]; y += 1) this.background[this.index(x, y)] = 0;
+      for (let y = 0; y < this.height; y += 1) {
+        const tileId = this.foreground[this.index(x, y)];
+        if (tileId !== 0 && !TILE_DEFS[tileId]) this.foreground[this.index(x, y)] = 0;
+      }
+    }
   }
 
   rebuildSurface() {
@@ -84,14 +97,10 @@ export function generateWorld() {
       if (y >= world.height - 1) world.set(x, y, 3);
       else if (y >= surface + 5) world.set(x, y, 2);
       else if (y >= surface) world.set(x, y, 1);
-      if (y >= surface - 10 && y < world.height - 1) world.setBackground(x, y, 2);
+      if (y >= surface && y < world.height - 1) world.setBackground(x, y, 2);
     }
   }
 
-  const shopX = 27;
-  const shopY = world.surface[shopX] - 1;
-  world.set(shopX, shopY, 30);
-  world.set(shopX, shopY - 1, 30);
   world.set(20, world.surface[20] - 1, 20);
   world.set(21, world.surface[21] - 1, 20);
   return world;

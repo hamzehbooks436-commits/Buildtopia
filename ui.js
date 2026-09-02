@@ -83,14 +83,6 @@ export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background
     ctx.arc(x + size / 2, y + 10, 12, 0, Math.PI * 2);
     ctx.fill();
   }
-  if (tileId === 30) {
-    ctx.fillStyle = "#4b2f42";
-    ctx.fillRect(x + 4, y + 10, size - 8, size - 5);
-    ctx.fillStyle = "#ffe77a";
-    ctx.font = "bold 10px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText("SHOP", x + size / 2, y + 23);
-  }
 }
 
 export function drawPlayer(ctx, player, camera, name = "", remote = false) {
@@ -180,7 +172,7 @@ export function drawHud(ctx, assets, state, width) {
   ctx.fillText("BUILDTOPIA", 29, 42);
   ctx.fillStyle = "#c9c0e6";
   ctx.font = "600 12px system-ui";
-  ctx.fillText(worldName ? `World: ${worldName}  ·  ${online || 1} online` : "Shared sky sandbox", 29, 63);
+  ctx.fillText(worldName ? `World: ${worldName}  ·  ${online} online` : "Shared sky sandbox", 29, 63);
   ctx.fillText("A / D move  ·  W jump  ·  hold click mine", 29, 82);
 
   const gems = countItem(inventory, "gems");

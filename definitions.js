@@ -2,11 +2,11 @@ const BLOCK_2_4 = [{ count: 2, weight: 1 }, { count: 3, weight: 1 }, { count: 4,
 
 export const TILE_DEFS = {
   0: { name: "Empty", solid: false, color: "transparent" },
-  1: { name: "Dirt", solid: true, breakTime: 420, drops: [{ item: "dirt_seed", count: 1, chance: .35 }, { item: "dirt_block", count: 1, chance: .2 }], color: "#9f633f", sprite: [84, 12, 20, 20] },
-  2: { name: "Rock", solid: true, breakTime: 1200, drops: [{ item: "rock_seed", count: 1, chance: .35 }, { item: "rock", count: 1, chance: .2 }, { item: "gems", count: 1, chance: .35 }], color: "#7d7896", sprite: [139, 12, 20, 20] },
+  1: { name: "Dirt", solid: true, breakTime: 420, drops: [{ item: "dirt_seed", count: 1, chance: .5 }, { item: "dirt_block", count: 1, chance: .2 }], color: "#9f633f", sprite: [84, 12, 20, 20] },
+  2: { name: "Rock", solid: true, breakTime: 1200, drops: [{ item: "rock_seed", count: 1, chance: .5 }, { item: "rock", count: 1, chance: .2 }, { item: "gems", count: 1, chance: .35 }], color: "#7d7896", sprite: [139, 12, 20, 20] },
   3: { name: "Bedrock", solid: true, unbreakable: true, color: "#403c55", sprite: [314, 286, 18, 18] },
-  4: { name: "Clay", solid: true, breakTime: 700, drops: [{ item: "clay_seed", count: 1, chance: .35 }, { item: "clay_block", count: 1, chance: .2 }], color: "#a8a4b8", sprite: [84, 40, 20, 20] },
-  5: { name: "Lava", solid: false, breakTime: 1600, drops: [{ item: "lava_seed", count: 1, chance: .35 }, { item: "lava_block", count: 1, chance: .2 }], color: "#e06a2a", sprite: [139, 40, 20, 20] },
+  4: { name: "Clay", solid: true, breakTime: 700, drops: [{ item: "clay_seed", count: 1, chance: .5 }, { item: "clay_block", count: 1, chance: .2 }], color: "#a8a4b8", sprite: [84, 40, 20, 20] },
+  5: { name: "Lava", solid: false, breakTime: 1600, drops: [{ item: "lava_seed", count: 1, chance: .5 }, { item: "lava_block", count: 1, chance: .2 }], color: "#e06a2a", sprite: [139, 40, 20, 20] },
   6: { name: "White Door", solid: false, unbreakable: true, door: true, color: "#e8e6f2", sprite: [314, 40, 18, 18] },
   7: { name: "World Lock", solid: true, breakTime: 800, drops: [{ item: "world_lock", count: 1 }], color: "#f2c14e", sprite: [314, 64, 18, 18] },
 
@@ -38,15 +38,15 @@ export const TILE_DEFS = {
   35: { name: "Green Block Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "green_block", weighted: BLOCK_2_4 }, { item: "green_block_seed", count: 1, chance: .35 }] }, color: "#4e9e58", sprite: [202, 160, 20, 20] },
   36: { name: "Yellow Block Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "yellow_block", weighted: BLOCK_2_4 }, { item: "yellow_block_seed", count: 1, chance: .35 }] }, color: "#c8a83e", sprite: [224, 160, 20, 20] },
 
-  40: { name: "Red Flower", solid: false, breakTime: 200, drops: [{ item: "red_flower_seed", count: 1, chance: .35 }, { item: "red_flower", count: 1, chance: .2 }], color: "#e05a5a", sprite: [4, 60, 18, 18] },
-  41: { name: "Blue Flower", solid: false, breakTime: 200, drops: [{ item: "blue_flower_seed", count: 1, chance: .35 }, { item: "blue_flower", count: 1, chance: .2 }], color: "#5a8ae0", sprite: [26, 60, 18, 18] },
-  42: { name: "Green Flower", solid: false, breakTime: 200, drops: [{ item: "green_flower_seed", count: 1, chance: .35 }, { item: "green_flower", count: 1, chance: .2 }], color: "#58b858", sprite: [48, 60, 18, 18] },
-  43: { name: "Yellow Flower", solid: false, breakTime: 200, drops: [{ item: "yellow_flower_seed", count: 1, chance: .35 }, { item: "yellow_flower", count: 1, chance: .2 }], color: "#e0c84a", sprite: [70, 60, 18, 18] },
+  40: { name: "Red Flower", solid: false, breakTime: 200, drops: [{ item: "red_flower_seed", count: 1, chance: .5 }, { item: "red_flower", count: 1, chance: .2 }], color: "#e05a5a", sprite: [4, 60, 18, 18] },
+  41: { name: "Blue Flower", solid: false, breakTime: 200, drops: [{ item: "blue_flower_seed", count: 1, chance: .5 }, { item: "blue_flower", count: 1, chance: .2 }], color: "#5a8ae0", sprite: [26, 60, 18, 18] },
+  42: { name: "Green Flower", solid: false, breakTime: 200, drops: [{ item: "green_flower_seed", count: 1, chance: .5 }, { item: "green_flower", count: 1, chance: .2 }], color: "#58b858", sprite: [48, 60, 18, 18] },
+  43: { name: "Yellow Flower", solid: false, breakTime: 200, drops: [{ item: "yellow_flower_seed", count: 1, chance: .5 }, { item: "yellow_flower", count: 1, chance: .2 }], color: "#e0c84a", sprite: [70, 60, 18, 18] },
 
-  50: { name: "Red Block", solid: true, breakTime: 700, drops: [{ item: "red_block_seed", count: 1, chance: .35 }, { item: "red_block", count: 1, chance: .2 }], color: "#b8524c", sprite: [4, 90, 20, 20] },
-  51: { name: "Blue Block", solid: true, breakTime: 700, drops: [{ item: "blue_block_seed", count: 1, chance: .35 }, { item: "blue_block", count: 1, chance: .2 }], color: "#5278b8", sprite: [28, 90, 20, 20] },
-  52: { name: "Green Block", solid: true, breakTime: 700, drops: [{ item: "green_block_seed", count: 1, chance: .35 }, { item: "green_block", count: 1, chance: .2 }], color: "#4e9e58", sprite: [52, 90, 20, 20] },
-  53: { name: "Yellow Block", solid: true, breakTime: 700, drops: [{ item: "yellow_block_seed", count: 1, chance: .35 }, { item: "yellow_block", count: 1, chance: .2 }], color: "#c8a83e", sprite: [76, 90, 20, 20] },
+  50: { name: "Red Block", solid: true, breakTime: 700, drops: [{ item: "red_block_seed", count: 1, chance: .5 }, { item: "red_block", count: 1, chance: .2 }], color: "#b8524c", sprite: [4, 90, 20, 20] },
+  51: { name: "Blue Block", solid: true, breakTime: 700, drops: [{ item: "blue_block_seed", count: 1, chance: .5 }, { item: "blue_block", count: 1, chance: .2 }], color: "#5278b8", sprite: [28, 90, 20, 20] },
+  52: { name: "Green Block", solid: true, breakTime: 700, drops: [{ item: "green_block_seed", count: 1, chance: .5 }, { item: "green_block", count: 1, chance: .2 }], color: "#4e9e58", sprite: [52, 90, 20, 20] },
+  53: { name: "Yellow Block", solid: true, breakTime: 700, drops: [{ item: "yellow_block_seed", count: 1, chance: .5 }, { item: "yellow_block", count: 1, chance: .2 }], color: "#c8a83e", sprite: [76, 90, 20, 20] },
 };
 
 export const FLOWER_SEED_RECIPES = {

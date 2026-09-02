@@ -129,6 +129,27 @@ export function drawCrosshair(ctx, target, camera, reachable) {
   ctx.restore();
 }
 
+function drawSlot(ctx, assets, inventory, index, x, y, size, selected) {
+  ctx.fillStyle = selected ? "#f6dcff" : "rgba(23, 17, 51, .82)";
+  roundedRect(ctx, x, y, size, size, 10);
+  ctx.fill();
+  ctx.lineWidth = selected ? 3 : 1;
+  ctx.strokeStyle = selected ? "#ffffff" : "rgba(255, 255, 255, .25)";
+  ctx.stroke();
+  const slot = inventory[index];
+  if (slot) {
+    drawItemIcon(ctx, assets, slot.itemId, x + 8, y + 8, size - 16);
+    ctx.fillStyle = "#fff";
+    ctx.font = "700 12px system-ui";
+    ctx.textAlign = "right";
+    ctx.fillText(slot.count, x + size - 7, y + size - 7);
+  }
+  ctx.fillStyle = selected ? "#352151" : "#a9a0c2";
+  ctx.font = "700 10px system-ui";
+  ctx.textAlign = "left";
+  ctx.fillText(index + 1, x + 7, y + 13);
+}
+
 export function drawHotbar(ctx, assets, inventory, selectedSlot, width, height) {
   const gap = 7;
   const slotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (HOTBAR_SIZE - 1) * gap) / HOTBAR_SIZE)));
@@ -136,27 +157,39 @@ export function drawHotbar(ctx, assets, inventory, selectedSlot, width, height) 
   const left = Math.round((width - barWidth) / 2);
   const top = height - slotSize - 23;
   for (let index = 0; index < HOTBAR_SIZE; index += 1) {
-    const x = left + index * (slotSize + gap);
-    const selected = index === selectedSlot;
-    ctx.fillStyle = selected ? "#f6dcff" : "rgba(23, 17, 51, .82)";
-    roundedRect(ctx, x, top, slotSize, slotSize, 10);
-    ctx.fill();
-    ctx.lineWidth = selected ? 3 : 1;
-    ctx.strokeStyle = selected ? "#ffffff" : "rgba(255, 255, 255, .25)";
-    ctx.stroke();
-    const slot = inventory[index];
-    if (slot) {
-      drawItemIcon(ctx, assets, slot.itemId, x + 10, top + 10, slotSize - 20);
-      ctx.fillStyle = "#fff";
-      ctx.font = "700 12px system-ui";
-      ctx.textAlign = "right";
-      ctx.fillText(slot.count, x + slotSize - 7, top + slotSize - 7);
-    }
-    ctx.fillStyle = selected ? "#352151" : "#a9a0c2";
-    ctx.font = "700 10px system-ui";
-    ctx.textAlign = "left";
-    ctx.fillText(index + 1, x + 7, top + 13);
+    drawSlot(ctx, assets, inventory, index, left + index * (slotSize + gap), top, slotSize, index === selectedSlot);
   }
+}
+
+export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, height) {
+  const columns = 5;
+  const gap = 7;
+  const rows = Math.ceil(inventory.length / columns);
+  const slotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (columns - 1) * gap) / columns)));
+  const gridWidth = columns * slotSize + (columns - 1) * gap;
+  const left = Math.round((width - gridWidth) / 2);
+  const hotbarSlotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (HOTBAR_SIZE - 1) * gap) / HOTBAR_SIZE)));
+  const top = height - hotbarSlotSize - 23 - 14 - (rows * slotSize + (rows - 1) * gap);
+  ctx.save();
+  ctx.fillStyle = "rgba(16, 11, 38, .94)";
+  roundedRect(ctx, left - 14, top - 14, gridWidth + 28, rows * slotSize + (rows - 1) * gap + 28, 18);
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, .3)";
+  ctx.stroke();
+  ctx.fillStyle = "#e2adff";
+  ctx.font = "800 11px system-ui";
+  ctx.textAlign = "left";
+  ctx.fillText("BAG", left - 4, top - 24 < 18 ? top - 2 : top - 22);
+  const slots = [];
+  for (let index = 0; index < inventory.length; index += 1) {
+    const x = left + (index % columns) * (slotSize + gap);
+    const y = top + Math.floor(index / columns) * (slotSize + gap);
+    drawSlot(ctx, assets, inventory, index, x, y, slotSize, index === selectedSlot);
+    slots.push({ x, y, size: slotSize, index });
+  }
+  ctx.restore();
+  return { slots, x: left - 14, y: top - 14, width: gridWidth + 28, height: rows * slotSize + (rows - 1) * gap + 28 };
 }
 
 export function drawHud(ctx, assets, state, width) {

@@ -23,7 +23,8 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **W**, **Up**, or **Space** — jump
 - **Hold click / touch a block** — mine or harvest
 - **Right click**, **E**, or **PLACE** — place the selected item
-- **1–8** — select a hotbar slot
+- **1–5** — select a hotbar slot
+- **I** or **Bag** — open the bag (the other 15 inventory slots)
 - **Sky Market** — open the shop
 - **World Gate** — save and return to the world-picker page
 

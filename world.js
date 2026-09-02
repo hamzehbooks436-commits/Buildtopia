@@ -65,11 +65,11 @@ export class World {
     return world;
   }
 
-  // Older saves kept faint background blocks floating above the terrain and the
-  // retired Sky Market tile; both are stripped whenever a world is loaded.
+  // Older saves kept faint background blocks behind the terrain and the retired
+  // Sky Market tile; both are stripped whenever a world is loaded.
   cleanupLegacyTiles() {
+    this.background.fill(0);
     for (let x = 0; x < this.width; x += 1) {
-      for (let y = 0; y < this.surface[x]; y += 1) this.background[this.index(x, y)] = 0;
       for (let y = 0; y < this.height; y += 1) {
         const tileId = this.foreground[this.index(x, y)];
         if (tileId !== 0 && !TILE_DEFS[tileId]) this.foreground[this.index(x, y)] = 0;
@@ -95,14 +95,26 @@ export function generateWorld() {
     world.surface[x] = surface;
     for (let y = 0; y < world.height; y += 1) {
       if (y >= world.height - 1) world.set(x, y, 3);
+      else if (y >= world.height - 3) world.set(x, y, 5);
       else if (y >= surface + 5) world.set(x, y, 2);
       else if (y >= surface) world.set(x, y, 1);
-      if (y >= surface && y < world.height - 1) world.setBackground(x, y, 2);
     }
   }
 
   world.set(20, world.surface[20] - 1, 20);
   world.set(21, world.surface[21] - 1, 20);
+  for (let x = 1; x < world.width - 1; x += 1) {
+    const y = world.surface[x] - 1;
+    if (Math.random() < .16 && world.get(x, y) === 0) world.set(x, y, 40 + Math.floor(Math.random() * 4));
+  }
+  let clayPlaced = 0, attempts = 0;
+  while (clayPlaced < 60 && attempts < 5000) {
+    attempts += 1;
+    const x = 1 + Math.floor(Math.random() * (world.width - 2));
+    const minY = world.surface[x] + 5;
+    const y = minY + Math.floor(Math.random() * Math.max(1, world.height - 3 - minY));
+    if (world.get(x, y) === 2) { world.set(x, y, 4); clayPlaced += 1; }
+  }
   return world;
 }
 

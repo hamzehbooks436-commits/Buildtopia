@@ -100,6 +100,14 @@ function createTileAtlas() {
     return speckle(x, y, "#f2c14e", "#d9a72e", "#ffe08a", 25);
   });
 
+  // Pickaxe [314,88,18,18]
+  paint([314, 88, 18, 18], (x, y) => {
+    if (Math.abs(x - (15 - y)) <= 1 && y >= 4 && y <= 15 && x >= 2) return x + y === 15 ? "#6d4526" : "#8a5a34";
+    const arc = Math.hypot((x - 8.5) / 8.4, (y - 9) / 8.4);
+    if (arc <= 1 && arc >= .72 && y <= 9) return arc >= .9 ? "#7d7896" : "#c8c8d4";
+    return null;
+  });
+
   // Clay [84,40,20,20]
   blockArt([84, 40, 20, 20], ["#a8a4b8", "#8d89a0", "#c2bed0"], 3);
 

@@ -26,6 +26,7 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **1–5** — select a hotbar slot
 - **Mouse wheel** or **+/-** — zoom in and out (you stay centered)
 - **Click a White Door** — return to the World Gate (the door is also your respawn point)
+- **Pickaxe** (Sky Market, 500 gems) — breaks blocks 55% faster; a tool, not a placeable block
 - **I** or **Inventory** — open the inventory (the other 15+ slots)
 - **Sky Market** — open the shop
 - **World Gate** — save and return to the world-picker page

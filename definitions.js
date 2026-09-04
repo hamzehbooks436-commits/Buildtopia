@@ -85,6 +85,7 @@ export const ITEM_DEFS = {
   green_block: { name: "Green Block", placesTile: 52, color: "#6fbf78", sprite: [52, 90, 20, 20], description: "A colorful building block." },
   yellow_block: { name: "Yellow Block", placesTile: 53, color: "#e0c85e", sprite: [76, 90, 20, 20], description: "A colorful building block." },
   gems: { name: "Sky Gems", currency: true, color: "#ffdf5f", sprite: [326, 46, 18, 18], description: "Spend these in the Sky Market." },
+  pickaxe: { name: "Pickaxe", color: "#c8c8d4", sprite: [314, 88, 18, 18], description: "Breaks blocks 55% faster. A tool — it can't be placed." },
   white_door: { name: "White Door", placesTile: 6, color: "#f4f2fa", sprite: [314, 40, 18, 18], description: "Click it to return to the World Gate. You respawn here." },
   world_lock: { name: "World Lock", placesTile: 7, color: "#f2c14e", sprite: [314, 64, 18, 18], description: "Locks a world so only you can build or break in it." },
 };
@@ -97,6 +98,7 @@ export const SHOP_ITEMS = [
   { item: "dirt_block", amount: 4, cost: 4 },
   { item: "rock", amount: 2, cost: 6 },
   SLOT_UPGRADE,
+  { item: "pickaxe", amount: 1, cost: 500 },
   { item: "world_lock", amount: 1, cost: 15000 },
 ];
 

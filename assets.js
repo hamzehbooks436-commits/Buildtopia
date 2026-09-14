@@ -142,6 +142,15 @@ function createTileAtlas() {
     blockArt([sx, 90, 20, 20], blockPalettes[color], 21 + index * 4);
   });
 
+  // Brick block, seed and crop use free atlas slots.
+  const brickPalette = ["#b96848", "#88452f", "#df9270"];
+  paint([100, 90, 20, 20], (x, y) => {
+    if (y % 6 === 0 || (x + (Math.floor(y / 6) % 2) * 5) % 10 === 0) return "#d6c2a9";
+    return speckle(x, y, ...brickPalette, 37);
+  });
+  seedArt([246, 130, 18, 18], brickPalette);
+  sproutArt([246, 160, 20, 20], "#714830", brickPalette);
+
   // Seed row at y=130 (18x18, step 22)
   seedArt([4, 130, 18, 18], ["#a8a4b8", "#8d89a0", "#dcd8e8"]);
   seedArt([26, 130, 18, 18], ["#7d7896", "#635e7c", "#b6b1c9"]);

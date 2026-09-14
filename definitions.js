@@ -38,6 +38,10 @@ export const TILE_DEFS = {
   35: { name: "Green Block Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "green_block", weighted: BLOCK_2_4 }, { item: "green_block_seed", count: 1, chance: .35 }] }, color: "#4e9e58", sprite: [202, 160, 20, 20] },
   36: { name: "Yellow Block Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "yellow_block", weighted: BLOCK_2_4 }, { item: "yellow_block_seed", count: 1, chance: .35 }] }, color: "#c8a83e", sprite: [224, 160, 20, 20] },
 
+  37: { name: "Brick Seed", solid: false, breakTime: 180, drops: [{ item: "brick_seed", count: 1 }], growTime: 55000, growsInto: 38, color: "#b96848", sprite: [246, 130, 18, 18] },
+  38: { name: "Brick Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "brick_block", weighted: BLOCK_2_4 }, { item: "brick_seed", count: 1, chance: .35 }] }, color: "#b96848", sprite: [246, 160, 20, 20] },
+  54: { name: "Brick Block", solid: true, breakTime: 800, drops: [{ item: "brick_seed", count: 1, chance: .5 }, { item: "brick_block", count: 1, chance: .2 }], color: "#b96848", sprite: [100, 90, 20, 20] },
+
   40: { name: "Red Flower", solid: false, breakTime: 200, drops: [{ item: "red_flower_seed", count: 1, chance: .5 }, { item: "red_flower", count: 1, chance: .2 }], color: "#e05a5a", sprite: [4, 60, 18, 18] },
   41: { name: "Blue Flower", solid: false, breakTime: 200, drops: [{ item: "blue_flower_seed", count: 1, chance: .5 }, { item: "blue_flower", count: 1, chance: .2 }], color: "#5a8ae0", sprite: [26, 60, 18, 18] },
   42: { name: "Green Flower", solid: false, breakTime: 200, drops: [{ item: "green_flower_seed", count: 1, chance: .5 }, { item: "green_flower", count: 1, chance: .2 }], color: "#58b858", sprite: [48, 60, 18, 18] },
@@ -49,25 +53,31 @@ export const TILE_DEFS = {
   53: { name: "Yellow Block", solid: true, breakTime: 700, drops: [{ item: "yellow_block_seed", count: 1, chance: .5 }, { item: "yellow_block", count: 1, chance: .2 }], color: "#c8a83e", sprite: [76, 90, 20, 20] },
 };
 
-export const FLOWER_SEED_RECIPES = {
-  15: "red_block_seed",
-  16: "blue_block_seed",
-  17: "green_block_seed",
-  18: "yellow_block_seed",
+// Sorted tile pairs make splicing work in either planting order.
+export const SEED_RECIPES = {
+  "12+15": "red_block_seed",
+  "12+16": "blue_block_seed",
+  "12+17": "green_block_seed",
+  "12+18": "yellow_block_seed",
+  "12+13": "brick_seed",
 };
 
-export const CLAY_CROP_TILE = 25;
+export function spliceResult(firstTile, secondTile) {
+  return SEED_RECIPES[[firstTile, secondTile].sort((a, b) => a - b).join("+")] ?? null;
+}
 
 export const ITEM_DEFS = {
+  brick_seed: { name: "Brick Seed", placesTile: 37, color: "#b96848", sprite: [246, 130, 18, 18], description: "Splice Clay and Rock Seeds on the same tile. Grows into a Brick Crop." },
+  brick_block: { name: "Brick Block", placesTile: 54, color: "#b96848", sprite: [100, 90, 20, 20], description: "A sturdy brick building block." },
   dirt_seed: { name: "Dirt Seed", placesTile: 10, color: "#8cd46f", sprite: [3, 193, 18, 18], description: "Grows into a Dirtwood Tree." },
   moon_seed: { name: "Moonflower Seed", placesTile: 11, color: "#9ac8ff", sprite: [4, 223, 18, 18], description: "Grows into a Moonflower." },
-  clay_seed: { name: "Clay Seed", placesTile: 12, color: "#b8b4c8", sprite: [4, 130, 18, 18], description: "Grows into a Clay Crop. Combine with a flower seed for colored blocks." },
-  rock_seed: { name: "Rock Seed", placesTile: 13, color: "#948ea7", sprite: [26, 130, 18, 18], description: "Grows into a Rock Crop." },
+  clay_seed: { name: "Clay Seed", placesTile: 12, color: "#b8b4c8", sprite: [4, 130, 18, 18], description: "Grows into a Clay Crop. Place a flower seed on the same tile for colored block seeds, or a Rock Seed for a Brick Seed." },
+  rock_seed: { name: "Rock Seed", placesTile: 13, color: "#948ea7", sprite: [26, 130, 18, 18], description: "Grows into a Rock Crop. Splice with a Clay Seed on the same tile for a Brick Seed." },
   lava_seed: { name: "Lava Seed", placesTile: 14, color: "#ff9a4a", sprite: [48, 130, 18, 18], description: "Grows into a Lava Crop." },
-  red_flower_seed: { name: "Red Flower Seed", placesTile: 15, color: "#e05a5a", sprite: [70, 130, 18, 18], description: "Grows Red Flowers. Craft it onto a Clay Seed for a Red Block Seed." },
-  blue_flower_seed: { name: "Blue Flower Seed", placesTile: 16, color: "#5a8ae0", sprite: [92, 130, 18, 18], description: "Grows Blue Flowers. Craft it onto a Clay Seed for a Blue Block Seed." },
-  green_flower_seed: { name: "Green Flower Seed", placesTile: 17, color: "#58b858", sprite: [114, 130, 18, 18], description: "Grows Green Flowers. Craft it onto a Clay Seed for a Green Block Seed." },
-  yellow_flower_seed: { name: "Yellow Flower Seed", placesTile: 18, color: "#e0c84a", sprite: [136, 130, 18, 18], description: "Grows Yellow Flowers. Craft it onto a Clay Seed for a Yellow Block Seed." },
+  red_flower_seed: { name: "Red Flower Seed", placesTile: 15, color: "#e05a5a", sprite: [70, 130, 18, 18], description: "Grows Red Flowers. Place it on the same tile as a Clay Seed for a Red Block Seed." },
+  blue_flower_seed: { name: "Blue Flower Seed", placesTile: 16, color: "#5a8ae0", sprite: [92, 130, 18, 18], description: "Grows Blue Flowers. Place it on the same tile as a Clay Seed for a Blue Block Seed." },
+  green_flower_seed: { name: "Green Flower Seed", placesTile: 17, color: "#58b858", sprite: [114, 130, 18, 18], description: "Grows Green Flowers. Place it on the same tile as a Clay Seed for a Green Block Seed." },
+  yellow_flower_seed: { name: "Yellow Flower Seed", placesTile: 18, color: "#e0c84a", sprite: [136, 130, 18, 18], description: "Grows Yellow Flowers. Place it on the same tile as a Clay Seed for a Yellow Block Seed." },
   red_block_seed: { name: "Red Block Seed", placesTile: 19, color: "#b8524c", sprite: [158, 130, 18, 18], description: "Grows into a Red Block Crop." },
   blue_block_seed: { name: "Blue Block Seed", placesTile: 22, color: "#5278b8", sprite: [180, 130, 18, 18], description: "Grows into a Blue Block Crop." },
   green_block_seed: { name: "Green Block Seed", placesTile: 23, color: "#4e9e58", sprite: [202, 130, 18, 18], description: "Grows into a Green Block Crop." },

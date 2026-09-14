@@ -1,6 +1,6 @@
 import { loadAssets } from "./assets.js";
 import { HOTBAR_SIZE, INVENTORY_SIZE, MAX_INVENTORY_SIZE, PHYSICS, REACH, TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
-import { CLAY_CROP_TILE, FLOWER_SEED_RECIPES, ITEM_DEFS, TILE_DEFS } from "./definitions.js";
+import { ITEM_DEFS, TILE_DEFS, spliceResult } from "./definitions.js";
 import { addItem, countItem, createInventory, removeItem } from "./inventory.js";
 import { createPlayer, playerOverlapsTile, updatePlayer } from "./player.js";
 import { drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, shopOfferAt } from "./ui.js";
@@ -49,23 +49,40 @@ function tileTarget() { const worldX = input.pointer.x / zoom + camera.x, worldY
 function dropsFor(definition) { return (definition.harvest?.drops ?? definition.drops ?? []).map((drop) => { if (drop.chance && Math.random() > drop.chance) return null; let amount; if (drop.weighted) { const total = drop.weighted.reduce((sum, option) => sum + option.weight, 0); let roll = Math.random() * total; amount = drop.weighted[drop.weighted.length - 1].count; for (const option of drop.weighted) { roll -= option.weight; if (roll < 0) { amount = option.count; break; } } } else amount = drop.min ? Math.floor(Math.random() * (drop.max - drop.min + 1)) + drop.min : drop.count ?? 1; return { item: drop.item, amount }; }).filter(Boolean); }
 function collectDrops(drops) { const collected = []; let inventoryFull = false; drops.forEach((drop) => { if (addItem(inventory, drop.item, drop.amount)) collected.push(drop); else inventoryFull = true; }); return { collected, inventoryFull }; }
 function formatDrops(drops) { return drops.map((drop) => `${drop.amount}x ${ITEM_DEFS[drop.item].name}`).join(", "); }
-async function mutateWorld(mutator) { if (pendingWorldChange) return false; pendingWorldChange = true; try { const result = await runTransaction(worldStateRef, (current) => { if (current) { const saved = World.fromSave(current); if (!saved) return; mutator(saved); return saved.serialize(); } const next = generateWorld(); mutator(next); return next.serialize(); }); const updatedWorld = World.fromSave(result.snapshot.val()); if (updatedWorld) world = updatedWorld; return result.committed; } catch { notify("World update failed. Check your connection."); return false; } finally { pendingWorldChange = false; } }
+async function mutateWorld(mutator) { if (pendingWorldChange) return false; pendingWorldChange = true; try { const result = await runTransaction(worldStateRef, (current) => { if (current) { const saved = World.fromSave(current); if (!saved) return; if (mutator(saved) === false) return; return saved.serialize(); } const next = generateWorld(); if (mutator(next) === false) return; return next.serialize(); }); const updatedWorld = World.fromSave(result.snapshot.val()); if (updatedWorld) world = updatedWorld; return result.committed; } catch { notify("World update failed. Check your connection."); return false; } finally { pendingWorldChange = false; } }
 async function savePlayerState() { if (!player || !inventory) return; if (inventoryRef) await set(inventoryRef, { slots: inventory, size: inventorySize, selectedSlot, updatedAt: Date.now() }).catch(() => {}); if (playerStateRef) await set(playerStateRef, { player: { x: player.x, y: player.y }, worldName: requestedName, updatedAt: Date.now() }).catch(() => {}); }
 async function updatePresence() { if (presenceRef && player) await set(presenceRef, { username, x: Math.round(player.x), y: Math.round(player.y), facing: player.facing, updatedAt: Date.now() }).catch(() => {}); if (gamePresenceRef) await set(gamePresenceRef, { world: worldKey, name: username, updatedAt: Date.now() }).catch(() => {}); }
 async function completeBreak(target) { const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) return; const committed = await mutateWorld((next) => { if (next.get(target.x, target.y) === target.tileId) { next.set(target.x, target.y, 0); next.removePlant(target.x, target.y); next.naturalFlowers = (next.naturalFlowers ?? []).filter((flower) => flower.x !== target.x || flower.y !== target.y); } }); if (!committed) return; if (target.tileId === 7 && worldLockedBy === user?.uid && !world.foreground.includes(7)) { await runTransaction(metaRef, (current) => { if (!current) return current; const next = { ...current }; delete next.lockedBy; return next; }); worldLockedBy = null; notify("World lock removed — anyone can build here again."); } const { collected, inventoryFull } = collectDrops(dropsFor(definition)); const action = definition.harvest ? "Harvested" : "Mined"; notify(collected.length ? `${action} ${definition.name}: ${formatDrops(collected)}${inventoryFull ? " (inventory full)" : ""}` : `${action} ${definition.name}, but your inventory is full.`); await savePlayerState(); }
 function updateBreaking(now, target) { if (!input.pointerDown || !target.inBounds || !target.reachable || !target.tileId || shopOpen || pendingWorldChange) { stopBreaking(); return; } if (!canBuild()) { stopBreaking(); return; } const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) { stopBreaking(); return; } if (!breaking.active || breaking.x !== target.x || breaking.y !== target.y) Object.assign(breaking, { active: true, x: target.x, y: target.y, startedAt: now, progress: 0 }); breaking.progress = (now - breaking.startedAt) / (definition.breakTime * (countItem(inventory, "pickaxe") > 0 ? .45 : 1)); if (breaking.progress >= 1) { completeBreak(target); stopBreaking(); } }
 async function placeSelected() { if (shopOpen || pendingWorldChange) return; const target = tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (!item.placesTile) { notify("That item cannot be placed."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
-  const craftedSeed = FLOWER_SEED_RECIPES[item.placesTile];
-  if (craftedSeed && target.y + 1 < WORLD_HEIGHT && world.get(target.x, target.y + 1) === CLAY_CROP_TILE) {
-    if (target.tileId) { notify("That space is occupied."); return; }
-    if (!removeItem(inventory, slot.itemId, 1)) return;
-    const committed = await mutateWorld((next) => { if (next.get(target.x, target.y + 1) === CLAY_CROP_TILE) { next.set(target.x, target.y + 1, 0); next.removePlant(target.x, target.y + 1); } });
-    if (committed) { addItem(inventory, craftedSeed, 1); notify(`Crafted ${ITEM_DEFS[craftedSeed].name}!`); }
-    else addItem(inventory, slot.itemId, 1);
+  const craftedSeed = spliceResult(target.tileId, item.placesTile);
+  if (target.tileId && !craftedSeed) { notify("That space is occupied. These items cannot be spliced."); return; }
+  if (!craftedSeed && playerOverlapsTile(player, target.x, target.y)) { notify("Give yourself a little room."); return; }
+  const itemId = slot.itemId;
+  if (!removeItem(inventory, itemId, 1)) return;
+  stopBreaking();
+  const placedTile = craftedSeed ? ITEM_DEFS[craftedSeed].placesTile : item.placesTile;
+  const committed = await mutateWorld((next) => {
+    // Abort on a changed target, including a seed that grew during the request.
+    // Firebase may retry this callback; inventory changes stay outside it.
+    if (next.get(target.x, target.y) !== target.tileId) return false;
+    if (TILE_DEFS[placedTile].growTime) next.plant(target.x, target.y, placedTile);
+    else next.set(target.x, target.y, placedTile);
+  });
+  if (!committed) {
+    addItem(inventory, itemId, 1);
+    notify("Could not place: the tile changed or the connection failed. Your seed/item was returned.");
     savePlayerState();
     return;
   }
-  if (target.tileId) { notify("That space is occupied."); return; } if (playerOverlapsTile(player, target.x, target.y)) { notify("Give yourself a little room."); return; } if (!removeItem(inventory, slot.itemId, 1)) return; const committed = await mutateWorld((next) => { if (next.get(target.x, target.y) === 0) { if (TILE_DEFS[item.placesTile].growTime) next.plant(target.x, target.y, item.placesTile); else next.set(target.x, target.y, item.placesTile); } }); if (!committed) { addItem(inventory, slot.itemId, 1); return; } if (item.placesTile === 7) { await runTransaction(metaRef, (current) => ({ ...(current ?? { name: requestedName, key: worldKey, ownerId: user.uid, createdAt: Date.now() }), lockedBy: user.uid })); worldLockedBy = user.uid; notify("World locked! Only you can build or break here now."); } else notify(`Placed ${item.name}.`); savePlayerState(); }
+  if (item.placesTile === 7) {
+    await runTransaction(metaRef, (current) => ({ ...(current ?? { name: requestedName, key: worldKey, ownerId: user.uid, createdAt: Date.now() }), lockedBy: user.uid }));
+    worldLockedBy = user.uid;
+    notify("World locked! Only you can build or break here now.");
+  } else notify(craftedSeed ? `Spliced ${ITEM_DEFS[craftedSeed].name}! Growing on this tile.` : `Placed ${item.name}.`);
+  savePlayerState();
+}
+
 function updateCamera(delta) { const viewWidth = canvas.width / zoom, viewHeight = canvas.height / zoom, desiredX = player.x + player.width / 2 - viewWidth / 2, desiredY = player.y + player.height / 2 - viewHeight / 2, maxX = Math.max(0, WORLD_WIDTH * TILE_SIZE - viewWidth), maxY = Math.max(0, WORLD_HEIGHT * TILE_SIZE - viewHeight); camera.x += (Math.max(0, Math.min(maxX, desiredX)) - camera.x) * Math.min(1, delta * 6); camera.y += (Math.max(0, Math.min(maxY, desiredY)) - camera.y) * Math.min(1, delta * 6); }
 function lavaContact() { const left = Math.floor((player.x + 3) / TILE_SIZE), right = Math.floor((player.x + player.width - 3) / TILE_SIZE), top = Math.floor((player.y + 3) / TILE_SIZE), bottom = Math.floor((player.y + player.height - 1) / TILE_SIZE); for (let y = top; y <= bottom; y += 1) for (let x = left; x <= right; x += 1) if (world.get(x, y) === 5) return { x, y }; return null; }
 function checkLava(now) { const contact = lavaContact(); if (!contact) { lava.inside = false; return; } const fresh = !lava.inside; lava.inside = true; if (!fresh && now - lava.lastHitAt < 1000) return; lava.lastHitAt = now; lava.hits += 1; player.vy = -PHYSICS.jumpSpeed * 1.2; player.grounded = false; const lavaBelow = contact.y * TILE_SIZE + TILE_SIZE / 2 > player.y + player.height / 2 + 6; if (!lavaBelow) player.vx = (player.x + player.width / 2 >= contact.x * TILE_SIZE + TILE_SIZE / 2 ? 1 : -1) * PHYSICS.runSpeed * 1.2; if (lava.hits >= 4) { const spawn = respawnPoint(); player.x = spawn.x; player.y = spawn.y; player.vx = 0; player.vy = 0; lava.hits = 0; lava.inside = false; notify("The lava was too hot — you burned up and respawned at the door!"); savePlayerState(); } else notify(`Ouch! Lava burns! ${4 - lava.hits} lives left.`); }

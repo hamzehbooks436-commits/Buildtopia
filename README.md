@@ -32,3 +32,15 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **World Gate** — save and return to the world-picker page
 
 On iPad and other touch devices, movement, jump, and place buttons appear automatically. Tap or hold the world itself to target, mine, and harvest.
+
+## Seed splicing
+
+Plant one seed, then select the second seed and use **E**, **right click**, or **PLACE** on the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop.
+
+- Clay Seed + Red Flower Seed → Red Block Seed
+- Clay Seed + Blue Flower Seed → Blue Block Seed
+- Clay Seed + Green Flower Seed → Green Block Seed
+- Clay Seed + Yellow Flower Seed → Yellow Block Seed
+- Clay Seed + Rock Seed → Brick Seed (grows in 55 seconds)
+
+Incompatible pairs do not consume seeds. Splicing uses the same reach and world-lock restrictions as planting.

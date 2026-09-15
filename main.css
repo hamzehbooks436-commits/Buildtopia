@@ -131,6 +131,7 @@ canvas { touch-action: none; }
   .touch-controls { position: absolute; z-index: 3; right: max(16px, env(safe-area-inset-right)); bottom: max(96px, calc(env(safe-area-inset-bottom) + 78px)); left: max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; pointer-events: none; }
   .touch-controls > div { display: flex; gap: 9px; pointer-events: auto; }
   .touch-controls button { min-width: 58px; min-height: 58px; padding: 8px; color: #fff; background: rgba(40, 27, 76, .88); border: 1px solid rgba(255,255,255,.38); border-radius: 16px; box-shadow: 0 4px 0 rgba(8,4,22,.45); font-size: .78rem; }
+  .touch-actions [data-control="jump"] { min-width: 80px; min-height: 76px; font-size: .95rem; background: #67518d; }
   .touch-move button { min-width: 62px; font-size: 1.25rem; }
   .world-button.shop-button { top: 70px; }
   .world-button.bag-button { top: 122px; }

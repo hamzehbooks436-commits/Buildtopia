@@ -21,7 +21,7 @@ export function drawItemIcon(ctx, assets, itemId, x, y, size) {
   roundedRect(ctx, x, y, size, size, Math.max(3, size * .18));
   ctx.fill();
   ctx.save();
-  ctx.globalAlpha = .62;
+  ctx.globalAlpha = 1;
   drawSprite(ctx, assets.tiles, item.sprite, x + size * .13, y + size * .13, size * .74);
   ctx.restore();
 }
@@ -43,68 +43,35 @@ export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background
   if (!definition || tileId === 0) return;
   ctx.save();
   if (background) ctx.globalAlpha = .19;
-  ctx.fillStyle = definition.color;
-  ctx.fillRect(x, y, size, size);
-  ctx.globalAlpha *= .19;
-  drawSprite(ctx, assets.tiles, definition.sprite, x + 2, y + 2, size - 4);
-  ctx.globalAlpha = background ? .2 : .55;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(x + 3, y + 3, size - 6, 1);
+  ctx.imageSmoothingEnabled = false;
+  drawSprite(ctx, assets.tiles, definition.sprite, x, y, size);
   ctx.restore();
-
-  // A background tile is deliberately quiet: its main tint and source-art texture
-  // establish depth, while the foreground-only details stay out of the sky.
-  if (background) return;
-
-  if (tileId === 1) {
-    ctx.fillStyle = "#83c760";
-    ctx.fillRect(x, y, size, 5);
-    ctx.fillStyle = "rgba(63, 39, 68, .33)";
-    ctx.fillRect(x + 5, y + 15, 3, 3);
-    ctx.fillRect(x + 20, y + 23, 4, 3);
-  }
-  if (tileId === 2 || tileId === 3) {
-    ctx.fillStyle = "rgba(33, 27, 61, .38)";
-    ctx.fillRect(x + 8, y + 7, 5, 4);
-    ctx.fillRect(x + 21, y + 19, 4, 5);
-  }
-  if (tileId === 10 || tileId === 11) {
-    ctx.fillStyle = tileId === 10 ? "#3f7d43" : "#7653b8";
-    ctx.fillRect(x + size / 2 - 2, y + size - 12, 4, 10);
-    ctx.beginPath();
-    ctx.ellipse(x + size / 2 - 5, y + size - 16, 7, 4, -.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (tileId === 20 || tileId === 21) {
-    ctx.fillStyle = "#705042";
-    ctx.fillRect(x + size / 2 - 3, y + 12, 6, size - 12);
-    ctx.fillStyle = tileId === 20 ? "#6fc65f" : "#c889ef";
-    ctx.beginPath();
-    ctx.arc(x + size / 2, y + 10, 12, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 export function drawPlayer(ctx, player, camera, name = "", remote = false) {
   const x = Math.round(player.x - camera.x);
   const y = Math.round(player.y - camera.y);
   ctx.save();
-  ctx.fillStyle = "rgba(26, 16, 56, .3)";
-  ctx.ellipse(x + 11, y + 41, 15, 5, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "#f2c1aa";
-  roundedRect(ctx, x + 3, y + 1, 16, 17, 6);
-  ctx.fill();
-  ctx.fillStyle = remote ? "#2d6b8c" : "#44306d";
-  roundedRect(ctx, x + 1, y + 15, 20, 20, 5);
-  ctx.fill();
-  ctx.fillStyle = "#d9a8f7";
-  ctx.fillRect(x + 3, y + 18, 16, 3);
-  ctx.fillStyle = "#312250";
-  ctx.fillRect(x + 3, y + 35, 7, 5);
-  ctx.fillRect(x + 13, y + 35, 7, 5);
-  ctx.fillStyle = "#25213c";
-  const eyeX = player.facing > 0 ? x + 14 : x + 6;
-  ctx.fillRect(eyeX, y + 7, 2, 3);
+  // Draw in a 22 x 32 pixel grid; physical and visible height share TILE_SIZE.
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(player.width / 22, player.height / 32);
+  const pixel = (color, px, py, w, h) => { ctx.fillStyle = color; ctx.fillRect(px, py, w, h); };
+  pixel("#513749", 4, 0, 14, 5);
+  pixel("#755044", 6, 0, 10, 2);
+  pixel("#f2c1aa", 4, 5, 14, 10);
+  pixel("#d59481", 4, 12, 14, 3);
+  pixel("#f8d5b3", 6, 5, 10, 6);
+  pixel("#25213c", player.facing > 0 ? 14 : 6, 7, 2, 3);
+  pixel(remote ? "#2d6b8c" : "#44306d", 2, 15, 18, 11);
+  pixel(remote ? "#8dd1db" : "#b498dd", 4, 16, 14, 2);
+  pixel("#f2c1aa", 0, 20, 3, 6);
+  pixel("#d59481", 19, 20, 3, 6);
+  pixel("#312b4b", 4, 26, 6, 4);
+  pixel("#312b4b", 12, 26, 6, 4);
+  pixel("#241e35", 2, 30, 8, 2);
+  pixel("#241e35", 12, 30, 8, 2);
+  ctx.restore();
   if (name) {
     ctx.font = "800 11px system-ui";
     ctx.textAlign = "center";
@@ -324,7 +291,15 @@ export function drawShop(ctx, assets, inventory, width, height) {
     ctx.fillStyle = "#332451";
     roundedRect(ctx, cardX, cardY, cardWidth, 75, 14);
     ctx.fill();
-    if (offer.item === "inventory_slots") {
+    if (offer.item === "seed_package") {
+      drawItemIcon(ctx, assets, "red_flower_seed", cardX + 12, cardY + 12, 28);
+      drawItemIcon(ctx, assets, "blue_block_seed", cardX + 32, cardY + 23, 28);
+      drawItemIcon(ctx, assets, "dirt_seed", cardX + 12, cardY + 38, 28);
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 14px system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText("3 Random Seeds", cardX + 68, cardY + 30);
+    } else if (offer.item === "inventory_slots") {
       ctx.fillStyle = "#6d4a92";
       roundedRect(ctx, cardX + 14, cardY + 14, 44, 48, 12);
       ctx.fill();
@@ -351,7 +326,7 @@ export function drawShop(ctx, assets, inventory, width, height) {
     ctx.fillText(`${offer.cost.toLocaleString()} gems`, cardX + 68, cardY + 51);
     ctx.fillStyle = "#c4b6e0";
     ctx.font = "700 11px system-ui";
-    ctx.fillText(`Click to buy`, cardX + 68, cardY + 67);
+    ctx.fillText(offer.item === "seed_package" ? "Any seed · repeats possible" : "Click to buy", cardX + 68, cardY + 67);
   });
   return { x, y, panelWidth, cardWidth };
 }

@@ -1,7 +1,7 @@
 import { PHYSICS, TILE_SIZE } from "./config.js";
 
 export function createPlayer(x, y) {
-  return { x, y, width: 22, height: 40, vx: 0, vy: 0, facing: 1, grounded: false };
+  return { x, y, width: 22, height: TILE_SIZE, vx: 0, vy: 0, facing: 1, grounded: false, coyoteTime: 0, jumpBuffer: 0 };
 }
 
 function moveTowards(current, target, amount) {
@@ -14,15 +14,20 @@ function hasSolidAt(world, x, y) {
 }
 
 export function updatePlayer(player, world, input, delta) {
-  const direction = Number(input.right) - Number(input.left);
+  const direction = Number(Boolean(input.right)) - Number(Boolean(input.left));
   const acceleration = player.grounded ? PHYSICS.acceleration : PHYSICS.airAcceleration;
   player.vx = moveTowards(player.vx, direction * PHYSICS.runSpeed, acceleration * delta);
   if (!direction && player.grounded) player.vx = moveTowards(player.vx, 0, PHYSICS.acceleration * delta * 1.3);
   if (direction) player.facing = direction;
 
-  if (input.jumpPressed && player.grounded) {
+  // Remember early presses and allow a short grace period after leaving a ledge.
+  player.coyoteTime = player.grounded ? PHYSICS.coyoteTime : Math.max(0, player.coyoteTime - delta);
+  player.jumpBuffer = input.jumpPressed ? PHYSICS.jumpBufferTime : Math.max(0, player.jumpBuffer - delta);
+  if ((player.jumpBuffer > 0 || input.jumpHeld) && (player.grounded || player.coyoteTime > 0)) {
     player.vy = -PHYSICS.jumpSpeed;
     player.grounded = false;
+    player.coyoteTime = 0;
+    player.jumpBuffer = 0;
   }
   player.vy = Math.min(player.vy + PHYSICS.gravity * delta, PHYSICS.maxFallSpeed);
 
@@ -47,7 +52,8 @@ export function updatePlayer(player, world, input, delta) {
   let nextY = player.y + player.vy * delta;
   player.grounded = false;
   if (player.vy > 0) {
-    const probeY = nextY + player.height - 1;
+    // Probe the feet so gravity cannot sink the player a pixel into the floor.
+    const probeY = nextY + player.height;
     const left = Math.floor((player.x + 3) / TILE_SIZE);
     const right = Math.floor((player.x + player.width - 3) / TILE_SIZE);
     for (let x = left; x <= right; x += 1) {

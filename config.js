@@ -11,5 +11,7 @@ export const PHYSICS = {
   acceleration: 1800,
   airAcceleration: 980,
   jumpSpeed: 590,
+  coyoteTime: .12,
+  jumpBufferTime: .16,
   maxFallSpeed: 850,
 };

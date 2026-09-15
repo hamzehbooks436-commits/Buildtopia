@@ -4,6 +4,7 @@ import { TILE_DEFS, isSolid } from "./definitions.js";
 const FLOWER_GROW_INTERVAL = 3600000;
 const FLOWERS_PER_GROWTH = 5;
 const MAX_FLOWERS = 20;
+const FALLING_FLOWERS = new Set([21, 28, 29, 31, 32, 40, 41, 42, 43]);
 
 export class World {
   constructor() {
@@ -49,9 +50,37 @@ export class World {
     return grew;
   }
 
+  settleFlowers() {
+    let moved = 0;
+    // Bottom-up keeps flowers in the same column from replacing each other.
+    for (let x = 0; x < this.width; x += 1) {
+      for (let y = this.height - 2; y >= 0; y -= 1) {
+        const tileId = this.get(x, y);
+        if (!FALLING_FLOWERS.has(tileId)) continue;
+        let destination = y;
+        for (let below = y + 1; below < this.height; below += 1) {
+          const next = this.get(x, below);
+          if (isSolid(next) || FALLING_FLOWERS.has(next)) break;
+          // Pass non-solid decorations without overwriting doors, seeds or lava.
+          if (next === 0) destination = below;
+        }
+        if (destination === y) continue;
+        this.set(x, y, 0);
+        this.set(x, destination, tileId);
+        for (const flower of this.naturalFlowers) {
+          if (flower.x === x && flower.y === y) flower.y = destination;
+        }
+        moved += 1;
+      }
+    }
+    return moved;
+  }
+
   // Every hour a handful of flowers sprout on empty surface tiles. The cap only
   // applies to these wild flowers — flowers planted by players never count.
   updateFlowers(now = Date.now()) {
+    // Run even between growth cycles to repair flowers in already-dug worlds.
+    this.settleFlowers();
     if (now - this.flowerGrownAt < FLOWER_GROW_INTERVAL) return 0;
     this.flowerGrownAt = now;
     this.naturalFlowers = (this.naturalFlowers ?? []).filter((flower) => {
@@ -63,7 +92,9 @@ export class World {
     while (grown < target && attempts < 500) {
       attempts += 1;
       const x = 1 + Math.floor(Math.random() * (this.width - 2));
-      const y = this.surface[x] - 1;
+      let ground = 0;
+      while (ground < this.height && !this.isSolid(x, ground)) ground += 1;
+      const y = ground - 1;
       if (y >= 0 && this.get(x, y) === 0) { this.set(x, y, 40 + Math.floor(Math.random() * 4)); this.naturalFlowers.push({ x, y }); grown += 1; }
     }
     return grown;

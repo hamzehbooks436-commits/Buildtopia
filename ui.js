@@ -26,8 +26,8 @@ export function drawItemIcon(ctx, assets, itemId, x, y, size) {
   ctx.restore();
 }
 
-export function drawSky(ctx, assets, camera, width, height) {
-  const image = assets.sky;
+export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
+  const image = worldType === "beach" ? assets.sunsetSky : assets.sky;
   const scale = Math.max(width / image.width, height / image.height);
   const drawWidth = image.width * scale;
   const drawHeight = image.height * scale;

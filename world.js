@@ -16,6 +16,8 @@ export class World {
     this.surface = new Int16Array(this.width);
     this.flowerGrownAt = Date.now();
     this.naturalFlowers = [];
+    this.worldType = "sky";
+    this.blockSettings = {};
   }
 
   index(x, y) { return y * this.width + x; }
@@ -108,12 +110,14 @@ export class World {
       surface: Array.from(this.surface),
       flowerGrownAt: this.flowerGrownAt,
       naturalFlowers: this.naturalFlowers,
+      worldType: this.worldType,
+      blockSettings: this.blockSettings,
     };
   }
 
   static fromSave(data) {
     const world = new World();
-    if (!Array.isArray(data.foreground) || data.foreground.length !== world.foreground.length) return null;
+    if (!Array.isArray(data?.foreground) || data.foreground.length !== world.foreground.length) return null;
     world.foreground.set(data.foreground);
     if (Array.isArray(data.background) && data.background.length === world.background.length) world.background.set(data.background);
     if (Array.isArray(data.surface) && data.surface.length === world.surface.length) world.surface.set(data.surface);
@@ -121,6 +125,8 @@ export class World {
     world.plantedTiles = Array.isArray(data.plantedTiles) ? data.plantedTiles.filter((plant) => world.inBounds(plant.x, plant.y)) : [];
     world.flowerGrownAt = Number.isFinite(data.flowerGrownAt) ? data.flowerGrownAt : Date.now();
     world.naturalFlowers = Array.isArray(data.naturalFlowers) ? data.naturalFlowers.filter((flower) => world.inBounds(flower.x, flower.y)) : [];
+    world.worldType = data.worldType === "beach" ? "beach" : "sky";
+    world.blockSettings = data.blockSettings && typeof data.blockSettings === "object" ? data.blockSettings : {};
     world.cleanupLegacyTiles();
     world.updatePlants();
     return world;
@@ -148,7 +154,35 @@ export class World {
   }
 }
 
-export function generateWorld() {
+function generateBeachWorld() {
+  const world = new World();
+  world.worldType = "beach";
+  const waterline = 41;
+  for (let x = 0; x < world.width; x += 1) {
+    const shoreDrop = x < 72 ? 0 : Math.min(10, Math.floor((x - 72) / 5));
+    const ripple = Math.round(Math.sin(x * .16) * 1.2);
+    const surface = Math.max(37, 39 + ripple + shoreDrop);
+    world.surface[x] = surface;
+    for (let y = 0; y < world.height; y += 1) {
+      if (y >= world.height - 1) world.set(x, y, 3);
+      else if (y >= surface + 5) world.set(x, y, 2);
+      else if (y >= surface) world.set(x, y, 55);
+      else if (x >= 72 && y >= waterline) world.set(x, y, 61);
+    }
+  }
+  world.set(16, world.surface[16] - 1, 6);
+  let palms = 0;
+  for (let x = 24; x < 68; x += 8 + Math.floor(Math.random() * 5)) {
+    const y = world.surface[x] - 1;
+    world.set(x, y, 62);
+    if (world.get(x + 1, y) === 0 && (palms === 0 || Math.random() < .7)) world.set(x + 1, y, 63);
+    palms += 1;
+  }
+  return world;
+}
+
+export function generateWorld(worldName = "") {
+  if (String(worldName).toLowerCase().startsWith("beach")) return generateBeachWorld();
   const world = new World();
   for (let x = 0; x < world.width; x += 1) {
     const rolling = Math.sin(x * .19) * 1.7 + Math.sin(x * .067) * 3.4;

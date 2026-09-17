@@ -15,6 +15,7 @@ const popularWorldListEmpty = document.querySelector("#popular-world-list-empty"
 let currentUser = null;
 let visitedWorlds = {};
 let presence = {};
+const localMode = localStorage.getItem("buildtopiaLocalMode") === "true";
 
 const ONLINE_WINDOW = 30000;
 function isFresh(entry) { return Boolean(entry) && Date.now() - (entry.updatedAt || 0) < ONLINE_WINDOW; }
@@ -47,7 +48,7 @@ function renderGate() {
     worldCounts[entry.world] = (worldCounts[entry.world] ?? 0) + 1;
     if (entry.worldName) activeNames[entry.world] = entry.worldName;
   });
-  onlineTotal.textContent = `${totalOnline} player${totalOnline === 1 ? "" : "s"} online right now`;
+  onlineTotal.textContent = localMode ? "Playing locally — your worlds stay on this device" : `${totalOnline} player${totalOnline === 1 ? "" : "s"} online right now`;
 
   const popularWorlds = Object.entries(worldCounts)
     .map(([key, online]) => ({ key, name: activeNames[key] || visitedWorlds[key]?.worldName || key, online }))
@@ -64,7 +65,13 @@ function renderGate() {
   worlds.slice(0, 8).forEach((world) => worldList.appendChild(worldButton(world)));
 }
 
-if (!firebaseConfigured) setStatus("Firebase setup is required before worlds can be used.", true);
+if (localMode) {
+  currentUser = { uid: "local" };
+  welcome.textContent = localStorage.getItem("buildtopiaLocalName") || "Local Explorer";
+  visitedWorlds = JSON.parse(localStorage.getItem("buildtopiaLocalWorlds") || "{}");
+  onlineTotal.textContent = "Playing locally — your worlds stay on this device";
+  renderGate();
+} else if (!firebaseConfigured) setStatus("Firebase setup is required before worlds can be used.", true);
 else onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.replace("index.html"); return; }
   currentUser = user;
@@ -85,4 +92,11 @@ form.addEventListener("submit", (event) => {
     window.location.assign(`world.html?world=${encodeURIComponent(world)}&name=${encodeURIComponent(name)}`);
   } catch (error) { setStatus(error.message, true); }
 });
-signOutButton.addEventListener("click", async () => { if (auth) await signOut(auth); });
+signOutButton.addEventListener("click", async () => {
+  if (localMode) {
+    localStorage.removeItem("buildtopiaLocalMode");
+    window.location.replace("index.html");
+    return;
+  }
+  if (auth) await signOut(auth);
+});

@@ -152,6 +152,95 @@ export function createTileAtlas() {
   seedArt([246, 130, 18, 18], brickPalette);
   sproutArt([246, 160, 20, 20], "#714830", brickPalette);
 
+  // Beach and utility blocks.
+  paint([124, 90, 20, 20], (x, y) => {
+    if (y === 0 || x === 0) return "#fff5b4";
+    if (y === 19 || x === 19) return "#e5b65c";
+    if ((y === 5 && x >= 3 && x <= 6) || (y === 13 && x >= 12 && x <= 15)) return "#fff5b4";
+    if ((y === 9 && x >= 9 && x <= 11) || (y === 16 && x >= 4 && x <= 5)) return "#e5b65c";
+    return "#ffdf8b";
+  });
+  paint([148, 90, 20, 20], (x, y) => {
+    if (x === 0 || y === 0) return "#ffd18b";
+    if (x === 19 || y === 19 || y === 7 || y === 14) return "#bc6a43";
+    if (y === 1 || y === 8 || y === 15) return "#f5b876";
+    if ((y === 4 && x >= 3 && x <= 7) || (y === 11 && x >= 12 && x <= 16)) return "#ffd18b";
+    return "#df985b";
+  });
+  paint([172, 90, 20, 20], (x, y) => {
+    if (x === 0 || y === 0) return "#dbfbff";
+    if (x === 19 || y === 19) return "#4f96e8";
+    if ((y === 3 && x >= 3 && x <= 7) || (x === 3 && y >= 3 && y <= 5)) return "#ffffff";
+    if (x + y === 23 && x >= 11 && x <= 16) return "#b0f3ff";
+    return "rgba(113, 215, 255, .38)";
+  });
+  paint([196, 90, 20, 20], (x, y) => {
+    if (x < 2 || x > 17 || y < 1) return null;
+    if (x === 17 || y === 19) return "#3869cf";
+    if (x === 2 || y === 1) return "#dbfbff";
+    if (x === 3 || x === 16) return "#9ae7ff";
+    if (x === 14 && (y === 11 || y === 12)) return y === 11 ? "#fff59b" : "#e59a27";
+    if ((x === 5 || x === 14) && y >= 4 && y <= 8) return "#3869cf";
+    if ((y === 4 || y === 8 || y === 16) && x >= 5 && x <= 14) return "#9ae7ff";
+    return "#359ef5";
+  });
+  paint([220, 90, 20, 20], (x, y) => {
+    if ((x >= 3 && x <= 5) || (x >= 14 && x <= 16)) {
+      if (x === 3 || x === 14) return "#ffd18b";
+      return x === 5 || x === 16 ? "#bc6a43" : "#df985b";
+    }
+    if (x >= 6 && x <= 13 && y % 5 === 2) return "#fff5b4";
+    if (x >= 6 && x <= 13 && y % 5 === 3) return "#df985b";
+    return null;
+  });
+  paint([244, 90, 20, 20], (x, y) => {
+    const diamond = Math.abs(x - 9.5) + Math.abs(y - 8);
+    if (diamond < 7) {
+      if (diamond > 5) return "#24a56b";
+      return x + y < 17 ? "#b3ff91" : "#4edb79";
+    }
+    if (x >= 8 && x <= 11 && y >= 14 && y <= 17) return x < 10 ? "#dbfbff" : "#4f96e8";
+    if (x >= 5 && x <= 14 && y >= 18) return y === 18 ? "#9ae7ff" : "#3869cf";
+    return null;
+  });
+  paint([268, 90, 20, 20], (x, y) => {
+    if (y < 2) return "#b0f3ff";
+    const wave = Math.round(Math.sin(x * Math.PI / 10));
+    if (y === 7 + wave || y === 14 - wave) return "#71d7ff";
+    return "#43b9ff";
+  });
+  paint([292, 90, 20, 20], (x, y) => {
+    const leaf = (cx, cy, rx, ry) => Math.hypot((x - cx) / rx, (y - cy) / ry);
+    const canopy = Math.min(leaf(5, 6, 5, 2.5), leaf(14, 6, 5, 2.5), leaf(9.5, 3, 3, 3), leaf(4, 9, 3, 3), leaf(15, 9, 3, 3));
+    if (canopy <= 1) {
+      if (canopy > .78) return "#2ab66c";
+      return x + y < 15 ? "#c3ff81" : "#70e65d";
+    }
+    if (x >= 8 && x <= 11 && y >= 7) return y === 11 || y === 16 ? "#bc6a43" : x === 8 ? "#ffd18b" : "#df985b";
+    return null;
+  });
+  paint([280, 190, 20, 20], (x, y) => {
+    const radius = Math.hypot(x - 9.5, y - 10);
+    if (radius > 7) return null;
+    if (radius > 5.8) return "#ad7155";
+    if (((x === 10 || x === 13) && y === 8) || (x === 12 && y === 11)) return "#87536b";
+    return x + y < 17 ? "#ffd18b" : "#df985b";
+  });
+
+  // Wrench inventory tool.
+  paint([314, 112, 18, 18], (x, y) => {
+    if (x <= 8 && y <= 8 && Math.hypot(x - 4, y - 4) <= 4) {
+      if (x + y < 5 || (x <= 3 && y <= 3)) return null;
+      return x < y ? "#dbfbff" : "#7daacb";
+    }
+    if (Math.hypot(x - 13, y - 13) <= 3) {
+      if (Math.hypot(x - 13, y - 13) < 1.2) return null;
+      return x + y < 26 ? "#fff5b4" : "#ffd84c";
+    }
+    if (Math.abs(x - y) <= 1 && x >= 5 && x <= 13) return x < y ? "#dbfbff" : "#7daacb";
+    return null;
+  });
+
   // Seed row at y=130 (18x18, step 22)
   seedArt([4, 130, 18, 18], ["#ebafdf", "#c67dbe", "#ffe1f6"]);
   seedArt([26, 130, 18, 18], ["#9992e4", "#7369b9", "#d2c8ff"]);
@@ -210,5 +299,28 @@ export function createTileAtlas() {
 
 export async function loadAssets() {
   const sky = await loadImage("./skytexture.jpg");
-  return { sky, tiles: createTileAtlas() };
+  return { sky, sunsetSky: createSunsetSky(), tiles: createTileAtlas() };
+}
+
+export function createSunsetSky() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 520;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, "#3159a8");
+  gradient.addColorStop(.48, "#f07a78");
+  gradient.addColorStop(1, "#ffd37d");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#fff2a8";
+  ctx.beginPath();
+  ctx.arc(690, 280, 68, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.5)";
+  for (const [x, y, w] of [[90,110,170],[380,155,130],[720,80,120]]) {
+    ctx.fillRect(x, y, w, 12);
+    ctx.fillRect(x + 25, y - 12, w - 55, 12);
+  }
+  return canvas;
 }

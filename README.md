@@ -1,6 +1,6 @@
 # Buildtopia Multiplayer
 
-Buildtopia is a shared browser sandbox designed for GitHub Pages. Players create an account with a username and password, enter a named world through the World Gate, and see other online players in that world. Worlds, crops, edits, and each player's inventory are stored in Firebase Realtime Database.
+Buildtopia is a shared browser sandbox designed for GitHub Pages. Players can use an online account or choose **Play locally** to save worlds only on their device. Online worlds, crops, edits, presence, trades, and each player's inventory are stored in Firebase Realtime Database.
 
 ## Firebase setup
 
@@ -28,14 +28,19 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **Click a White Door** — return to the World Gate (the door is also your respawn point)
 - **Pickaxe** (Sky Market, 500 gems) — breaks blocks 55% faster; a tool, not a placeable block
 - **I** or **Inventory** — open the inventory (the other 15+ slots)
+- **Wrench** — select it in Inventory, then tap a World Door to set its destination or tap another online player to request a trade
 - **Sky Market** — open the shop
 - **World Gate** — save and return to the world-picker page
 
 On iPad and other touch devices, movement and jump buttons appear automatically. Tap an empty tile to place the selected item, tap a compatible planted seed to splice it, or press an occupied tile to mine and harvest. The game controls disable browser text selection so touches stay in the game.
 
+World names beginning with `beach` generate tropical terrain with sand, palms, coconuts, swimmable water, and a sunset sky. Hold jump to swim upward. Hold jump while touching a Ladder to climb at a steady pace. Walking over a Checkpoint changes your respawn point.
+
 ## Seed splicing
 
 Plant one seed, then select the second seed and tap, use **E**, or right click the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop. The in-game **Recipes** panel lists every available combination.
+
+Block recipes use the same exact-tile method: Sand + Rock makes Glass, Wood + Rock makes a World Door, and Wood + Yellow Flower makes a Ladder.
 
 - Clay Seed + Red Flower Seed → Red Block Seed
 - Clay Seed + Blue Flower Seed → Blue Block Seed

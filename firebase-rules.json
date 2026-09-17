@@ -18,6 +18,12 @@
         ".write": "auth != null && auth.uid == $uid"
       }
     },
+    "trades": {
+      ".read": "auth != null",
+      "$trade": {
+        ".write": "auth != null && ((!data.exists() && newData.child('fromUid').val() == auth.uid) || data.child('fromUid').val() == auth.uid || data.child('toUid').val() == auth.uid)"
+      }
+    },
     "worlds": {
       "$world": {
         ".read": "auth != null",

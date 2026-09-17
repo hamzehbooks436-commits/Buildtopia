@@ -9,6 +9,7 @@ const submit = document.querySelector("#auth-submit");
 const status = document.querySelector("#auth-status");
 const loginTab = document.querySelector("#login-tab");
 const signupTab = document.querySelector("#signup-tab");
+const localPlay = document.querySelector("#local-play");
 let mode = "login";
 
 function setStatus(message, isError = false) { status.textContent = message; status.classList.toggle("is-error", isError); }
@@ -33,6 +34,11 @@ function friendlyError(error) {
 
 loginTab.addEventListener("click", () => setMode("login"));
 signupTab.addEventListener("click", () => setMode("signup"));
+localPlay.addEventListener("click", () => {
+  localStorage.setItem("buildtopiaLocalMode", "true");
+  if (!localStorage.getItem("buildtopiaLocalName")) localStorage.setItem("buildtopiaLocalName", "Local Explorer");
+  window.location.replace("hub.html");
+});
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {

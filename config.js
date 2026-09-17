@@ -14,4 +14,8 @@ export const PHYSICS = {
   coyoteTime: .12,
   jumpBufferTime: .16,
   maxFallSpeed: 850,
+  climbSpeed: 135,
+  swimSpeed: 170,
+  waterGravity: 360,
+  waterMaxFallSpeed: 190,
 };

@@ -14,6 +14,7 @@ export function createInventory(saved = null, size = INVENTORY_SIZE) {
   slots[2] = { itemId: "dirt_block", count: 12 };
   slots[3] = { itemId: "rock", count: 4 };
   slots[4] = { itemId: "gems", count: 10 };
+  slots[5] = { itemId: "wrench", count: 1 };
   return slots;
 }
 

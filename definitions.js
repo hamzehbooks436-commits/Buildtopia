@@ -24,8 +24,8 @@ export const TILE_DEFS = {
   23: { name: "Green Block Seed", solid: false, breakTime: 180, drops: [{ item: "green_block_seed", count: 1 }], growTime: 50000, growsInto: 35, color: "#4edb79", sprite: [202, 130, 18, 18] },
   24: { name: "Yellow Block Seed", solid: false, breakTime: 180, drops: [{ item: "yellow_block_seed", count: 1 }], growTime: 50000, growsInto: 36, color: "#ffcf3f", sprite: [224, 130, 18, 18] },
 
-  20: { name: "Dirtwood Tree", solid: false, breakTime: 480, harvest: { drops: [{ item: "dirt_block", weighted: BLOCK_2_4 }, { item: "dirt_seed", min: 1, max: 2 }, { item: "gems", min: 1, max: 2 }] }, color: "#6e9e4a", sprite: [4, 17, 20, 20] },
-  21: { name: "Moonflower", solid: false, breakTime: 500, harvest: { drops: [{ item: "moon_seed", weighted: [{ count: 1, weight: 9 }, { count: 2, weight: 1 }] }, { item: "gems", min: 1, max: 2 }] }, color: "#d982ff", sprite: [18, 194, 18, 18] },
+  20: { name: "Tree", solid: false, breakTime: 480, harvest: { drops: [{ item: "wood_block", min: 1, max: 3 }, { item: "dirt_seed", min: 1, max: 2 }] }, color: "#6e9e4a", sprite: [4, 17, 20, 20] },
+  21: { name: "Moonflower", solid: false, breakTime: 500, harvest: { drops: [{ item: "moon_seed", weighted: [{ count: 1, weight: 9 }, { count: 2, weight: 1 }] }, { item: "gems", min: 5, max: 10 }] }, color: "#d982ff", sprite: [18, 194, 18, 18] },
   25: { name: "Clay Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "clay_block", weighted: BLOCK_2_4 }, { item: "clay_seed", count: 1, chance: .35 }] }, color: "#ebafdf", sprite: [4, 160, 20, 20] },
   26: { name: "Rock Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "rock", weighted: BLOCK_2_4 }, { item: "rock_seed", count: 1, chance: .35 }, { item: "gems", count: 1, chance: .35 }] }, color: "#9992e4", sprite: [26, 160, 20, 20] },
   27: { name: "Lava Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "lava_block", weighted: BLOCK_2_4 }, { item: "lava_seed", count: 1, chance: .35 }] }, color: "#ff8846", sprite: [48, 160, 20, 20] },
@@ -41,6 +41,16 @@ export const TILE_DEFS = {
   37: { name: "Brick Seed", solid: false, breakTime: 180, drops: [{ item: "brick_seed", count: 1 }], growTime: 55000, growsInto: 38, color: "#f57e66", sprite: [246, 130, 18, 18] },
   38: { name: "Brick Crop", solid: false, breakTime: 400, harvest: { drops: [{ item: "brick_block", weighted: BLOCK_2_4 }, { item: "brick_seed", count: 1, chance: .35 }] }, color: "#f57e66", sprite: [246, 160, 20, 20] },
   54: { name: "Brick Block", solid: true, breakTime: 800, drops: [{ item: "brick_seed", count: 1, chance: .5 }, { item: "brick_block", count: 1, chance: .2 }], color: "#f57e66", sprite: [100, 90, 20, 20] },
+
+  55: { name: "Sand", solid: true, breakTime: 320, drops: [{ item: "sand_block", count: 1 }], color: "#f4d27b", sprite: [124, 90, 20, 20] },
+  56: { name: "Wood Block", solid: true, breakTime: 520, drops: [{ item: "wood_block", count: 1 }], color: "#b8753d", sprite: [148, 90, 20, 20] },
+  57: { name: "Glass Block", solid: true, breakTime: 420, drops: [{ item: "glass_block", count: 1 }], color: "#9de8f2", sprite: [172, 90, 20, 20] },
+  58: { name: "World Door", solid: false, breakTime: 420, drops: [{ item: "door_block", count: 1 }], worldDoor: true, color: "#59b9dd", sprite: [196, 90, 20, 20] },
+  59: { name: "Ladder", solid: false, breakTime: 260, drops: [{ item: "ladder", count: 1 }], ladder: true, color: "#d79b51", sprite: [220, 90, 20, 20] },
+  60: { name: "Checkpoint", solid: false, breakTime: 600, drops: [{ item: "checkpoint_block", count: 1 }], checkpoint: true, color: "#55d98a", sprite: [244, 90, 20, 20] },
+  61: { name: "Water", solid: false, unbreakable: true, water: true, color: "#39bde8", sprite: [268, 90, 20, 20] },
+  62: { name: "Palm Tree", solid: false, breakTime: 520, harvest: { drops: [{ item: "wood_block", min: 1, max: 3 }, { item: "coconut_block", count: 1, chance: .5 }] }, color: "#42c66c", sprite: [292, 90, 20, 20] },
+  63: { name: "Coconut Block", solid: true, breakTime: 360, drops: [{ item: "coconut_block", count: 1 }], color: "#8a552e", sprite: [280, 190, 20, 20] },
 
   40: { name: "Red Flower", solid: false, breakTime: 200, drops: [{ item: "red_flower_seed", count: 1, chance: .5 }, { item: "red_flower", count: 1, chance: .2 }], color: "#ff628c", sprite: [4, 60, 18, 18] },
   41: { name: "Blue Flower", solid: false, breakTime: 200, drops: [{ item: "blue_flower_seed", count: 1, chance: .5 }, { item: "blue_flower", count: 1, chance: .2 }], color: "#43b9ff", sprite: [26, 60, 18, 18] },
@@ -60,6 +70,9 @@ export const SEED_RECIPES = {
   "12+17": "green_block_seed",
   "12+18": "yellow_block_seed",
   "12+13": "brick_seed",
+  "2+55": "glass_block",
+  "2+56": "door_block",
+  "43+56": "ladder",
 };
 
 export function spliceResult(firstTile, secondTile) {
@@ -69,7 +82,15 @@ export function spliceResult(firstTile, secondTile) {
 export const ITEM_DEFS = {
   brick_seed: { name: "Brick Seed", placesTile: 37, color: "#f57e66", sprite: [246, 130, 18, 18], description: "Splice Clay and Rock Seeds on the same tile. Grows into a Brick Crop." },
   brick_block: { name: "Brick Block", placesTile: 54, color: "#f57e66", sprite: [100, 90, 20, 20], description: "A sturdy brick building block." },
-  dirt_seed: { name: "Dirt Seed", placesTile: 10, color: "#8cd46f", sprite: [3, 193, 18, 18], description: "Grows into a Dirtwood Tree." },
+  sand_block: { name: "Sand", placesTile: 55, color: "#f4d27b", sprite: [124, 90, 20, 20], description: "Beach sand. Combine with Rock for Glass." },
+  wood_block: { name: "Wood Block", placesTile: 56, color: "#b8753d", sprite: [148, 90, 20, 20], description: "Harvested from Trees and Palms. Combine with Rock or a Yellow Flower." },
+  glass_block: { name: "Glass Block", placesTile: 57, color: "#9de8f2", sprite: [172, 90, 20, 20], description: "Clear building glass crafted from Sand and Rock." },
+  door_block: { name: "World Door", placesTile: 58, color: "#59b9dd", sprite: [196, 90, 20, 20], description: "Walk through it to visit its destination. Select the Wrench and tap it to choose a world." },
+  ladder: { name: "Ladder", placesTile: 59, color: "#d79b51", sprite: [220, 90, 20, 20], description: "Hold jump while touching it to climb at a steady speed." },
+  checkpoint_block: { name: "Checkpoint", placesTile: 60, color: "#55d98a", sprite: [244, 90, 20, 20], description: "Walk over it to set your respawn point in this world." },
+  coconut_block: { name: "Coconut Block", placesTile: 63, color: "#8a552e", sprite: [280, 190, 20, 20], description: "A tropical block found in beach worlds." },
+  wrench: { name: "Wrench", tool: true, color: "#f4ca58", sprite: [314, 112, 18, 18], description: "Select it, then tap World Doors to configure them or players to request a trade." },
+  dirt_seed: { name: "Dirt Seed", placesTile: 10, color: "#8cd46f", sprite: [3, 193, 18, 18], description: "Grows into a Tree that drops Wood Blocks." },
   moon_seed: { name: "Moonflower Seed", placesTile: 11, color: "#9ac8ff", sprite: [4, 223, 18, 18], description: "Grows into a Moonflower." },
   clay_seed: { name: "Clay Seed", placesTile: 12, color: "#b8b4c8", sprite: [4, 130, 18, 18], description: "Grows into a Clay Crop. Place a flower seed on the same tile for colored block seeds, or a Rock Seed for a Brick Seed." },
   rock_seed: { name: "Rock Seed", placesTile: 13, color: "#948ea7", sprite: [26, 130, 18, 18], description: "Grows into a Rock Crop. Splice with a Clay Seed on the same tile for a Brick Seed." },
@@ -103,13 +124,14 @@ export const ITEM_DEFS = {
 export const SLOT_UPGRADE = { item: "inventory_slots", amount: 5, cost: 500 };
 
 export const SHOP_ITEMS = [
-  { item: "seed_package", amount: 3, cost: 75 },
+  { item: "seed_package", amount: 3, cost: 250 },
   { item: "dirt_seed", amount: 2, cost: 2 },
-  { item: "moon_seed", amount: 1, cost: 7 },
+  { item: "moon_seed", amount: 1, cost: 25 },
   { item: "dirt_block", amount: 4, cost: 4 },
   { item: "rock", amount: 2, cost: 6 },
+  { item: "checkpoint_block", amount: 1, cost: 500 },
   SLOT_UPGRADE,
-  { item: "pickaxe", amount: 1, cost: 500 },
+  { item: "pickaxe", amount: 1, cost: 750 },
   { item: "world_lock", amount: 1, cost: 15000 },
 ];
 

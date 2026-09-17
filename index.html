@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#075b79" />
     <title>Buildtopia — Sign in</title>
-    <link rel="stylesheet" href="main.css?v=20260917" />
+    <link rel="stylesheet" href="main.css?v=20260917b" />
   </head>
   <body class="portal-page">
     <main class="portal-shell">
@@ -22,10 +22,11 @@
           <label>Password<input id="password" name="password" type="password" autocomplete="current-password" minlength="6" required /></label>
           <button id="auth-submit" type="submit">Log in</button>
         </form>
+        <div class="local-play"><span>or</span><button id="local-play" type="button">Play locally</button></div>
         <p class="form-note">Usernames use 3–20 letters, numbers, or underscores.</p>
         <p id="auth-status" class="status-message" role="status"></p>
       </section>
     </main>
-    <script type="module" src="auth.js?v=20260830"></script>
+    <script type="module" src="auth.js?v=20260917b"></script>
   </body>
 </html>

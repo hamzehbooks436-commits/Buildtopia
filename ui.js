@@ -34,7 +34,7 @@ export function drawSky(ctx, assets, camera, width, height) {
   const offset = -((camera.x * .06) % drawWidth);
   ctx.drawImage(image, offset, 0, drawWidth, drawHeight);
   ctx.drawImage(image, offset + drawWidth, 0, drawWidth, drawHeight);
-  ctx.fillStyle = "rgba(36, 19, 82, .13)";
+  ctx.fillStyle = "rgba(5, 91, 121, .1)";
   ctx.fillRect(0, 0, width, height);
 }
 
@@ -63,8 +63,8 @@ export function drawPlayer(ctx, player, camera, name = "", remote = false) {
   pixel("#d59481", 4, 12, 14, 3);
   pixel("#f8d5b3", 6, 5, 10, 6);
   pixel("#25213c", player.facing > 0 ? 14 : 6, 7, 2, 3);
-  pixel(remote ? "#2d6b8c" : "#44306d", 2, 15, 18, 11);
-  pixel(remote ? "#8dd1db" : "#b498dd", 4, 16, 14, 2);
+  pixel(remote ? "#2d6b8c" : "#087da1", 2, 15, 18, 11);
+  pixel(remote ? "#8dd1db" : "#62dc8a", 4, 16, 14, 2);
   pixel("#f2c1aa", 0, 20, 3, 6);
   pixel("#d59481", 19, 20, 3, 6);
   pixel("#312b4b", 4, 26, 6, 4);
@@ -97,7 +97,7 @@ export function drawCrosshair(ctx, target, camera, reachable) {
 }
 
 function drawSlot(ctx, assets, inventory, index, x, y, size, selected) {
-  ctx.fillStyle = selected ? "#f6dcff" : "rgba(23, 17, 51, .82)";
+  ctx.fillStyle = selected ? "#b8f4c5" : "rgba(3, 47, 66, .86)";
   roundedRect(ctx, x, y, size, size, 10);
   ctx.fill();
   ctx.lineWidth = selected ? 3 : 1;
@@ -111,7 +111,7 @@ function drawSlot(ctx, assets, inventory, index, x, y, size, selected) {
     ctx.textAlign = "right";
     ctx.fillText(slot.count, x + size - 7, y + size - 7);
   }
-  ctx.fillStyle = selected ? "#352151" : "#a9a0c2";
+  ctx.fillStyle = selected ? "#06435a" : "#acd2d9";
   ctx.font = "700 10px system-ui";
   ctx.textAlign = "left";
   ctx.fillText(index + 1, x + 7, y + 13);
@@ -138,13 +138,13 @@ export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, 
   const hotbarSlotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (HOTBAR_SIZE - 1) * gap) / HOTBAR_SIZE)));
   const top = height - hotbarSlotSize - 23 - 14 - (rows * slotSize + (rows - 1) * gap);
   ctx.save();
-  ctx.fillStyle = "rgba(16, 11, 38, .94)";
+  ctx.fillStyle = "rgba(3, 47, 66, .95)";
   roundedRect(ctx, left - 14, top - 14, gridWidth + 28, rows * slotSize + (rows - 1) * gap + 28, 18);
   ctx.fill();
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(255, 255, 255, .3)";
   ctx.stroke();
-  ctx.fillStyle = "#e2adff";
+  ctx.fillStyle = "#8df0a4";
   ctx.font = "800 11px system-ui";
   ctx.textAlign = "left";
   ctx.fillText("INVENTORY", left - 4, top - 24 < 18 ? top - 2 : top - 22);
@@ -176,20 +176,20 @@ export function drawHud(ctx, assets, state, width) {
   const { inventory, selectedSlot, toast, target, breaking, worldName, online, lavaHits } = state;
   const selected = inventory[selectedSlot];
   ctx.save();
-  ctx.fillStyle = "rgba(20, 14, 46, .74)";
+  ctx.fillStyle = "rgba(3, 55, 75, .78)";
   roundedRect(ctx, 16, 16, 310, 84, 14);
   ctx.fill();
   ctx.fillStyle = "#fff";
   ctx.font = "800 18px system-ui";
   ctx.textAlign = "left";
   ctx.fillText("BUILDTOPIA", 29, 42);
-  ctx.fillStyle = "#c9c0e6";
+  ctx.fillStyle = "#c9eaf0";
   ctx.font = "600 12px system-ui";
   ctx.fillText(worldName ? `World: ${worldName}  ·  ${online} online` : "Shared sky sandbox", 29, 63);
   ctx.fillText("A / D move  ·  W jump  ·  hold click mine", 29, 82);
 
   const gems = countItem(inventory, "gems");
-  ctx.fillStyle = "rgba(20, 14, 46, .74)";
+  ctx.fillStyle = "rgba(3, 55, 75, .78)";
   roundedRect(ctx, width - 122, 16, 106, 42, 14);
   ctx.fill();
   drawItemIcon(ctx, assets, "gems", width - 112, 25, 22);
@@ -201,7 +201,7 @@ export function drawHud(ctx, assets, state, width) {
   for (let index = 0; index < 4; index += 1) {
     const hx = width - 122 + 10 + index * 24;
     const hy = 66;
-    ctx.fillStyle = index < lives ? "rgba(20, 14, 46, .74)" : "rgba(20, 14, 46, .4)";
+    ctx.fillStyle = index < lives ? "rgba(3, 55, 75, .78)" : "rgba(3, 55, 75, .42)";
     roundedRect(ctx, hx - 4, hy - 3, 20, 18, 6);
     ctx.fill();
     ctx.fillStyle = index < lives ? "#ff5a5a" : "rgba(255, 255, 255, .22)";
@@ -216,7 +216,7 @@ export function drawHud(ctx, assets, state, width) {
   }
 
   if (selected) {
-    ctx.fillStyle = "rgba(20, 14, 46, .74)";
+    ctx.fillStyle = "rgba(3, 55, 75, .78)";
     roundedRect(ctx, 16, 111, 226, 38, 12);
     ctx.fill();
     drawItemIcon(ctx, assets, selected.itemId, 22, 118, 24);
@@ -230,7 +230,7 @@ export function drawHud(ctx, assets, state, width) {
     const progress = Math.min(1, breaking.progress);
     const boxWidth = 170;
     const x = Math.round((width - boxWidth) / 2);
-    ctx.fillStyle = "rgba(20, 14, 46, .78)";
+    ctx.fillStyle = "rgba(3, 55, 75, .82)";
     roundedRect(ctx, x, 18, boxWidth, 40, 12);
     ctx.fill();
     ctx.fillStyle = "#fff";
@@ -247,7 +247,7 @@ export function drawHud(ctx, assets, state, width) {
 
   if (toast?.message) {
     ctx.globalAlpha = Math.min(1, toast.timeLeft * 2);
-    ctx.fillStyle = "rgba(20, 14, 46, .86)";
+    ctx.fillStyle = "rgba(3, 55, 75, .9)";
     ctx.font = "700 13px system-ui";
     const textWidth = ctx.measureText(toast.message).width + 36;
     roundedRect(ctx, (width - textWidth) / 2, 72, textWidth, 31, 12);
@@ -260,14 +260,14 @@ export function drawHud(ctx, assets, state, width) {
 }
 
 export function drawShop(ctx, assets, inventory, width, height) {
-  ctx.fillStyle = "rgba(8, 5, 22, .58)";
+  ctx.fillStyle = "rgba(1, 30, 43, .62)";
   ctx.fillRect(0, 0, width, height);
   const panelWidth = Math.min(570, width - 36);
   const rows = Math.ceil(SHOP_ITEMS.length / 2);
   const panelHeight = 111 + (rows - 1) * 93 + 75 + 30;
   const x = (width - panelWidth) / 2;
   const y = Math.max(60, (height - panelHeight - 40) / 2);
-  ctx.fillStyle = "#23183f";
+  ctx.fillStyle = "#075b79";
   roundedRect(ctx, x, y, panelWidth, panelHeight, 22);
   ctx.fill();
   ctx.lineWidth = 1;
@@ -277,7 +277,7 @@ export function drawShop(ctx, assets, inventory, width, height) {
   ctx.font = "800 24px system-ui";
   ctx.textAlign = "left";
   ctx.fillText("Sky Market", x + 28, y + 44);
-  ctx.fillStyle = "#cfc6e7";
+  ctx.fillStyle = "#c9eaf0";
   ctx.font = "600 13px system-ui";
   ctx.fillText(`You have ${countItem(inventory, "gems")} Sky Gems`, x + 28, y + 68);
   ctx.fillText("Choose an item, or press Escape to leave.", x + 28, y + 88);
@@ -288,7 +288,7 @@ export function drawShop(ctx, assets, inventory, width, height) {
     const row = Math.floor(index / 2);
     const cardX = x + 18 + col * (cardWidth + 18);
     const cardY = y + 111 + row * 93;
-    ctx.fillStyle = "#332451";
+    ctx.fillStyle = "#06435a";
     roundedRect(ctx, cardX, cardY, cardWidth, 75, 14);
     ctx.fill();
     if (offer.item === "seed_package") {
@@ -300,7 +300,7 @@ export function drawShop(ctx, assets, inventory, width, height) {
       ctx.textAlign = "left";
       ctx.fillText("3 Random Seeds", cardX + 68, cardY + 30);
     } else if (offer.item === "inventory_slots") {
-      ctx.fillStyle = "#6d4a92";
+      ctx.fillStyle = "#1688b7";
       roundedRect(ctx, cardX + 14, cardY + 14, 44, 48, 12);
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,.35)";
@@ -324,7 +324,7 @@ export function drawShop(ctx, assets, inventory, width, height) {
     ctx.fillStyle = "#ffe77a";
     ctx.font = "700 12px system-ui";
     ctx.fillText(`${offer.cost.toLocaleString()} gems`, cardX + 68, cardY + 51);
-    ctx.fillStyle = "#c4b6e0";
+    ctx.fillStyle = "#acd2d9";
     ctx.font = "700 11px system-ui";
     ctx.fillText(offer.item === "seed_package" ? "Any seed · repeats possible" : "Click to buy", cardX + 68, cardY + 67);
   });

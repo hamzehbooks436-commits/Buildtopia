@@ -18,6 +18,15 @@ export function createInventory(saved = null, size = INVENTORY_SIZE) {
 }
 
 export function addItem(inventory, itemId, amount = 1) {
+  if (!ITEM_DEFS[itemId] || !Number.isFinite(amount) || amount <= 0) return false;
+  amount = Math.floor(amount);
+  const capacity = inventory.reduce((total, slot) => {
+    if (!slot) return total + 999;
+    return slot.itemId === itemId ? total + Math.max(0, 999 - slot.count) : total;
+  }, 0);
+  // Keep additions atomic. Previously a large reward could partially change the
+  // bag and still report that it was full.
+  if (capacity < amount) return false;
   let remaining = amount;
   for (const slot of inventory) {
     if (slot?.itemId === itemId && slot.count < 999) {
@@ -34,7 +43,7 @@ export function addItem(inventory, itemId, amount = 1) {
       remaining -= added;
     }
   }
-  return remaining === 0;
+  return true;
 }
 
 export function removeItem(inventory, itemId, amount = 1) {

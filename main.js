@@ -1,6 +1,6 @@
 import { loadAssets } from "./assets.js";
 import { HOTBAR_SIZE, INVENTORY_SIZE, MAX_INVENTORY_SIZE, PHYSICS, REACH, TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
-import { ITEM_DEFS, TILE_DEFS, spliceResult } from "./definitions.js";
+import { ITEM_DEFS, SEED_RECIPES, TILE_DEFS, spliceResult } from "./definitions.js";
 import { addItem, countItem, createInventory, removeItem } from "./inventory.js";
 import { createPlayer, playerOverlapsTile, updatePlayer } from "./player.js";
 import { drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, shopOfferAt } from "./ui.js";
@@ -17,11 +17,15 @@ const loadingMessage = document.querySelector("#loading-message");
 const leaveButton = document.querySelector("#leave-button");
 const shopButton = document.querySelector("#shop-button");
 const bagButton = document.querySelector("#bag-button");
+const recipesButton = document.querySelector("#recipes-button");
+const recipesPanel = document.querySelector("#recipes-panel");
+const recipesClose = document.querySelector("#recipes-close");
+const recipesList = document.querySelector("#recipes-list");
 const params = new URLSearchParams(window.location.search);
 const worldKey = params.get("world");
 const requestedName = params.get("name") || worldKey;
 let assets, world, inventory, inventorySize = INVENTORY_SIZE, player, user, username = "Explorer", worldStateRef, playerStateRef, presenceRef, gamePresenceRef, metaRef, inventoryRef, worldLockedBy = null;
-let running = false, lastFrame = 0, lastPlayerSave = 0, lastPlantCheck = 0, selectedSlot = 0, shopOpen = false, shopLayout = null, inventoryOpen = false, invLayout = null, pendingWorldChange = false, remotePlayers = {};
+let running = false, lastFrame = 0, lastPlayerSave = 0, lastPlantCheck = 0, selectedSlot = 0, shopOpen = false, shopLayout = null, inventoryOpen = false, invLayout = null, recipesOpen = false, pendingWorldChange = false, remotePlayers = {};
 const drag = { from: -1 };
 const camera = { x: 0, y: 0 };
 const ZOOM_MIN = .6, ZOOM_MAX = 2.5;
@@ -39,8 +43,9 @@ function stopBreaking() { Object.assign(breaking, { active: false, progress: 0, 
 const ONLINE_WINDOW = 30000;
 function isFresh(entry) { return Boolean(entry) && Date.now() - (entry.updatedAt || 0) < ONLINE_WINDOW; }
 function onlineCount() { let total = 1; Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user?.uid && isFresh(remote)) total += 1; }); return total; }
-function setShopOpen(open) { shopOpen = open; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; stopBreaking(); }
-function setInventoryOpen(open) { inventoryOpen = open; bagButton.setAttribute("aria-expanded", String(open)); if (open) stopBreaking(); }
+function setRecipesOpen(open) { recipesOpen = open; recipesPanel.hidden = !open; recipesButton.setAttribute("aria-expanded", String(open)); if (open) { setShopOpen(false); setInventoryOpen(false); } stopBreaking(); }
+function setShopOpen(open) { shopOpen = open; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; if (open && recipesOpen) setRecipesOpen(false); stopBreaking(); }
+function setInventoryOpen(open) { inventoryOpen = open; bagButton.setAttribute("aria-expanded", String(open)); if (open && recipesOpen) setRecipesOpen(false); if (open) stopBreaking(); }
 function canBuild() { return !worldLockedBy || worldLockedBy === user?.uid; }
 function respawnPoint() { const doorIndex = world.foreground.indexOf(6); if (doorIndex >= 0) return { x: (doorIndex % world.width) * TILE_SIZE + 5, y: Math.max(0, Math.floor(doorIndex / world.width) - 2) * TILE_SIZE }; const surface = world.surface[18] || 39; return { x: 18 * TILE_SIZE, y: (surface - 3) * TILE_SIZE }; }
 async function leaveToWorldGate() { await savePlayerState(); await remove(presenceRef).catch(() => {}); await remove(gamePresenceRef).catch(() => {}); window.location.assign("hub.html"); }
@@ -51,7 +56,7 @@ function collectDrops(drops) { const collected = []; let inventoryFull = false; 
 function formatDrops(drops) { return drops.map((drop) => `${drop.amount}x ${ITEM_DEFS[drop.item].name}`).join(", "); }
 async function mutateWorld(mutator) { if (pendingWorldChange) return false; pendingWorldChange = true; try { const result = await runTransaction(worldStateRef, (current) => { if (current) { const saved = World.fromSave(current); if (!saved) return; if (mutator(saved) === false) return; saved.settleFlowers(); return saved.serialize(); } const next = generateWorld(); if (mutator(next) === false) return; next.settleFlowers(); return next.serialize(); }); const updatedWorld = World.fromSave(result.snapshot.val()); if (updatedWorld) world = updatedWorld; return result.committed; } catch { notify("World update failed. Check your connection."); return false; } finally { pendingWorldChange = false; } }
 async function savePlayerState() { if (!player || !inventory) return; if (inventoryRef) await set(inventoryRef, { slots: inventory, size: inventorySize, selectedSlot, updatedAt: Date.now() }).catch(() => {}); if (playerStateRef) await set(playerStateRef, { player: { x: player.x, y: player.y }, worldName: requestedName, updatedAt: Date.now() }).catch(() => {}); }
-async function updatePresence() { if (presenceRef && player) await set(presenceRef, { username, x: Math.round(player.x), y: Math.round(player.y), facing: player.facing, updatedAt: Date.now() }).catch(() => {}); if (gamePresenceRef) await set(gamePresenceRef, { world: worldKey, name: username, updatedAt: Date.now() }).catch(() => {}); }
+async function updatePresence() { if (presenceRef && player) await set(presenceRef, { username, x: Math.round(player.x), y: Math.round(player.y), facing: player.facing, updatedAt: Date.now() }).catch(() => {}); if (gamePresenceRef) await set(gamePresenceRef, { world: worldKey, worldName: requestedName, name: username, updatedAt: Date.now() }).catch(() => {}); }
 async function completeBreak(target) { const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) return; const committed = await mutateWorld((next) => { if (next.get(target.x, target.y) === target.tileId) { next.set(target.x, target.y, 0); next.removePlant(target.x, target.y); next.naturalFlowers = (next.naturalFlowers ?? []).filter((flower) => flower.x !== target.x || flower.y !== target.y); } }); if (!committed) return; if (target.tileId === 7 && worldLockedBy === user?.uid && !world.foreground.includes(7)) { await runTransaction(metaRef, (current) => { if (!current) return current; const next = { ...current }; delete next.lockedBy; return next; }); worldLockedBy = null; notify("World lock removed — anyone can build here again."); } const { collected, inventoryFull } = collectDrops(dropsFor(definition)); const action = definition.harvest ? "Harvested" : "Mined"; notify(collected.length ? `${action} ${definition.name}: ${formatDrops(collected)}${inventoryFull ? " (inventory full)" : ""}` : `${action} ${definition.name}, but your inventory is full.`); await savePlayerState(); }
 function updateBreaking(now, target) { if (!input.pointerDown || !target.inBounds || !target.reachable || !target.tileId || shopOpen || pendingWorldChange) { stopBreaking(); return; } if (!canBuild()) { stopBreaking(); return; } const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) { stopBreaking(); return; } if (!breaking.active || breaking.x !== target.x || breaking.y !== target.y) Object.assign(breaking, { active: true, x: target.x, y: target.y, startedAt: now, progress: 0 }); breaking.progress = (now - breaking.startedAt) / (definition.breakTime * (countItem(inventory, "pickaxe") > 0 ? .45 : 1)); if (breaking.progress >= 1) { completeBreak(target); stopBreaking(); } }
 async function placeSelected() { if (shopOpen || pendingWorldChange) return; const target = tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (!item.placesTile) { notify("That item cannot be placed."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
@@ -128,12 +133,12 @@ async function enterWorld() { if (!worldKey || !/^[a-z0-9_-]{3,28}$/.test(worldK
   inventorySize = Math.max(INVENTORY_SIZE, Math.min(MAX_INVENTORY_SIZE, Math.floor(savedInventory?.size) || INVENTORY_SIZE)); inventory = createInventory(savedInventory?.slots ?? null, inventorySize); let grantedDoor = false; if (!world.foreground.includes(6) && !inventory.some((slot) => slot?.itemId === "white_door")) { addItem(inventory, "white_door", 1); grantedDoor = true; } const spawn = respawnPoint(); player = createPlayer(savedPlayer?.player?.x ?? spawn.x, savedPlayer?.player?.y ?? spawn.y); selectedSlot = Math.min(Math.max(0, sourceSelected ?? 0), INVENTORY_SIZE - 1); onValue(worldStateRef, (snapshot) => { const next = World.fromSave(snapshot.val()); if (next) world = next; }); onValue(ref(database, `worlds/${worldKey}/presence`), (snapshot) => { remotePlayers = snapshot.val() ?? {}; }); await onDisconnect(presenceRef).remove(); await onDisconnect(gamePresenceRef).remove(); await updatePresence(); await update(ref(database, `users/${user.uid}`), { lastWorld: worldKey, lastSeenAt: Date.now() }); assets = await loadAssets(); resize(); running = true; loadingCard.classList.add("is-hidden"); if (grantedDoor) notify("You received a White Door — place it anywhere. Click it to return to the World Gate!"); else if (worldLockedBy && worldLockedBy !== user.uid) notify("This world is locked — you can look around but not build."); lastFrame = performance.now(); requestAnimationFrame(frame); }
 
 window.addEventListener("resize", resize); window.addEventListener("beforeunload", () => { savePlayerState(); });
-window.addEventListener("keydown", (event) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) placeSelected(); if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { setShopOpen(false); setInventoryOpen(false); } });
+window.addEventListener("keydown", (event) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) placeSelected(); if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); } });
 window.addEventListener("keyup", (event) => { if (["w", "W", "ArrowUp", " "].includes(event.key)) input.jumpHeld = false; if (event.key === "a" || event.key === "ArrowLeft") input.left = false; if (event.key === "d" || event.key === "ArrowRight") input.right = false; });
 window.addEventListener("pointerup", (event) => { if (drag.from < 0) return; pointerPosition(event); const hit = inventoryOpen && invLayout ? invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size) : null; if (hit && hit.index !== drag.from) moveInventorySlot(drag.from, hit.index); drag.from = -1; });
-canvas.addEventListener("pointermove", pointerPosition); canvas.addEventListener("pointerdown", (event) => { pointerPosition(event); canvas.focus(); if (!running) return; if (shopOpen) { buy(shopOfferAt(input.pointer, shopLayout)); return; } if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { input.pointerDown = false; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { input.pointerDown = false; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); placeSelected(); });
+canvas.addEventListener("pointermove", pointerPosition); canvas.addEventListener("pointerdown", (event) => { event.preventDefault(); pointerPosition(event); canvas.focus(); if (!running || recipesOpen) return; if (shopOpen) { buy(shopOfferAt(input.pointer, shopLayout)); return; } if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } if (event.pointerType === "touch") { const selectedItem = ITEM_DEFS[inventory[selectedSlot]?.itemId]; const canSplice = selectedItem?.placesTile && spliceResult(target.tileId, selectedItem.placesTile); if (!target.tileId || canSplice) { placeSelected(); return; } } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { input.pointerDown = false; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { input.pointerDown = false; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); placeSelected(); });
 canvas.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(zoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
-shopButton.addEventListener("click", () => setShopOpen(!shopOpen)); bagButton.addEventListener("click", () => setInventoryOpen(!inventoryOpen)); leaveButton.addEventListener("click", leaveToWorldGate);
+shopButton.addEventListener("click", () => setShopOpen(!shopOpen)); bagButton.addEventListener("click", () => setInventoryOpen(!inventoryOpen)); recipesButton.addEventListener("click", () => setRecipesOpen(!recipesOpen)); recipesClose.addEventListener("click", () => setRecipesOpen(false)); leaveButton.addEventListener("click", leaveToWorldGate);
 document.querySelectorAll("[data-control]").forEach((button) => {
   const control = button.dataset.control;
   button.style.touchAction = "none";
@@ -141,7 +146,6 @@ document.querySelectorAll("[data-control]").forEach((button) => {
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
     if (control === "jump") { input.jumpPressed = true; input.jumpHeld = true; }
-    else if (control === "place") placeSelected();
     else input[control] = true;
   };
   const up = (event) => {
@@ -153,6 +157,21 @@ document.querySelectorAll("[data-control]").forEach((button) => {
   button.addEventListener("pointerup", up);
   button.addEventListener("pointercancel", up);
   button.addEventListener("lostpointercapture", up);
+});
+
+Object.entries(SEED_RECIPES).forEach(([pair, result]) => {
+  const [first, second] = pair.split("+").map(Number);
+  const row = document.createElement("div");
+  row.className = "recipe-row";
+  const ingredients = document.createElement("span");
+  ingredients.textContent = `${TILE_DEFS[first].name} + ${TILE_DEFS[second].name}`;
+  const arrow = document.createElement("span");
+  arrow.className = "recipe-arrow";
+  arrow.textContent = "→";
+  const output = document.createElement("strong");
+  output.textContent = ITEM_DEFS[result].name;
+  row.append(ingredients, arrow, output);
+  recipesList.appendChild(row);
 });
 function resetControls() {
   input.left = input.right = input.jumpHeld = input.jumpPressed = input.pointerDown = false;

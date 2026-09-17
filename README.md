@@ -21,8 +21,8 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 
 - **A/D** or **arrow keys** — move
 - **W**, **Up**, or **Space** — jump
-- **Hold click / touch a block** — mine or harvest
-- **Right click**, **E**, or **PLACE** — place the selected item
+- **Hold click / press a block** — mine or harvest
+- **Right click** or **E** — place the selected item on desktop
 - **1–5** — select a hotbar slot
 - **Mouse wheel** or **+/-** — zoom in and out (you stay centered)
 - **Click a White Door** — return to the World Gate (the door is also your respawn point)
@@ -31,11 +31,11 @@ Push this folder to a GitHub repository, then enable **Settings → Pages → De
 - **Sky Market** — open the shop
 - **World Gate** — save and return to the world-picker page
 
-On iPad and other touch devices, movement, jump, and place buttons appear automatically. Tap or hold the world itself to target, mine, and harvest.
+On iPad and other touch devices, movement and jump buttons appear automatically. Tap an empty tile to place the selected item, tap a compatible planted seed to splice it, or press an occupied tile to mine and harvest. The game controls disable browser text selection so touches stay in the game.
 
 ## Seed splicing
 
-Plant one seed, then select the second seed and use **E**, **right click**, or **PLACE** on the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop.
+Plant one seed, then select the second seed and tap, use **E**, or right click the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop. The in-game **Recipes** panel lists every available combination.
 
 - Clay Seed + Red Flower Seed → Red Block Seed
 - Clay Seed + Blue Flower Seed → Blue Block Seed

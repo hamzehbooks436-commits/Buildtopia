@@ -123,9 +123,13 @@ export function drawHotbar(ctx, assets, inventory, selectedSlot, width, height) 
   const barWidth = HOTBAR_SIZE * slotSize + (HOTBAR_SIZE - 1) * gap;
   const left = Math.round((width - barWidth) / 2);
   const top = height - slotSize - 23;
+  const slots = [];
   for (let index = 0; index < HOTBAR_SIZE; index += 1) {
-    drawSlot(ctx, assets, inventory, index, left + index * (slotSize + gap), top, slotSize, index === selectedSlot);
+    const x = left + index * (slotSize + gap);
+    drawSlot(ctx, assets, inventory, index, x, top, slotSize, index === selectedSlot);
+    slots.push({ x, y: top, size: slotSize, index });
   }
+  return { slots };
 }
 
 export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, height, drag = null) {

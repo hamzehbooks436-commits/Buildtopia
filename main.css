@@ -141,6 +141,9 @@ canvas { touch-action: none; }
   .touch-controls { position: absolute; z-index: 3; right: max(16px, env(safe-area-inset-right)); bottom: max(96px, calc(env(safe-area-inset-bottom) + 78px)); left: max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; pointer-events: none; }
   .touch-controls > div { display: flex; gap: 9px; pointer-events: auto; }
   .touch-controls button { min-width: 58px; min-height: 58px; padding: 8px; color: #fff; background: rgba(7, 91, 121, .92); border: 1px solid rgba(255,255,255,.4); border-radius: 16px; box-shadow: 0 4px 0 rgba(2,36,52,.5); font-size: 1.2rem; touch-action: none; }
+  .touch-actions { align-items: flex-end; }
+  .touch-zoom { display: grid; gap: 7px; }
+  .touch-zoom button { min-width: 48px; min-height: 36px; padding: 2px 8px; border-radius: 12px; font-size: 1.35rem; }
   .touch-actions [data-control="jump"] { min-width: 76px; min-height: 76px; font-size: 1.55rem; background: #238b4b; }
   .touch-move button { min-width: 62px; font-size: 1.25rem; }
   .world-button.shop-button { top: 70px; }

@@ -71,7 +71,6 @@ export const SEED_RECIPES = {
   "12+18": "yellow_block_seed",
   "12+13": "brick_seed",
   "2+55": "glass_block",
-  "2+56": "door_block",
   "43+56": "ladder",
 };
 

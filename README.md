@@ -40,7 +40,7 @@ World names beginning with `beach` generate tropical terrain with sand, palms, c
 
 Plant one seed, then select the second seed and tap, use **E**, or right click the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop. The in-game **Recipes** panel lists every available combination.
 
-Block recipes use the same exact-tile method: Sand + Rock makes Glass, Wood + Rock makes a World Door, and Wood + Yellow Flower makes a Ladder.
+Block recipes use the same exact-tile method: Sand + Rock makes Glass, and Wood + Yellow Flower makes a Ladder.
 
 - Clay Seed + Red Flower Seed → Red Block Seed
 - Clay Seed + Blue Flower Seed → Blue Block Seed

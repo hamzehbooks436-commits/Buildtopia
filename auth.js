@@ -62,6 +62,7 @@ form.addEventListener("submit", async (event) => {
       await updateProfile(credential.user, { displayName });
       await set(ref(database, `users/${credential.user.uid}/profile`), { username: displayName, usernameKey: key, createdAt: Date.now() });
     }
+    localStorage.removeItem("buildtopiaLocalMode");
     window.location.replace("hub.html");
   } catch (error) {
     setStatus(friendlyError(error), true);
@@ -69,4 +70,4 @@ form.addEventListener("submit", async (event) => {
 });
 
 if (!firebaseConfigured) setStatus("Firebase setup is required before accounts can be used.", true);
-else onAuthStateChanged(auth, (user) => { if (user) window.location.replace("hub.html"); });
+else onAuthStateChanged(auth, (user) => { if (user && localStorage.getItem("buildtopiaLocalMode") !== "true") window.location.replace("hub.html"); });

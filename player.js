@@ -26,14 +26,20 @@ export function playerTouchesTile(player, world, property) {
   return false;
 }
 
-export function updatePlayer(player, world, input, delta) {
+export function updatePlayer(player, world, input, delta, onBounce = null) {
   const inWater = playerTouchesTile(player, world, "water");
   const onLadder = playerTouchesTile(player, world, "ladder");
   const climbing = onLadder && Boolean(input.jumpHeld || input.jumpPressed);
   const direction = Number(Boolean(input.right)) - Number(Boolean(input.left));
-  const acceleration = player.grounded ? PHYSICS.acceleration : PHYSICS.airAcceleration;
+  const feetY = Math.floor((player.y + player.height + .1) / TILE_SIZE);
+  const onIce = player.grounded && typeof world.get === "function" &&
+    [player.x + 3, player.x + player.width - 3].some((x) => TILE_DEFS[world.get(Math.floor(x / TILE_SIZE), feetY)]?.ice);
+  const acceleration = player.grounded ? (onIce ? PHYSICS.iceAcceleration : PHYSICS.acceleration) : PHYSICS.airAcceleration;
+  // Ice coasts when controls are released; only its low friction slows it down.
+  if (onIce && !direction) player.vx = moveTowards(player.vx, 0, PHYSICS.iceFriction * delta);
+  else
   player.vx = moveTowards(player.vx, direction * PHYSICS.runSpeed * (inWater ? .62 : 1), acceleration * delta);
-  if (!direction && player.grounded) player.vx = moveTowards(player.vx, 0, PHYSICS.acceleration * delta * 1.3);
+  if (!direction && player.grounded && !onIce) player.vx = moveTowards(player.vx, 0, PHYSICS.acceleration * delta * 1.3);
   if (direction) player.facing = direction;
 
   // Remember early presses and allow a short grace period after leaving a ledge.
@@ -81,8 +87,23 @@ export function updatePlayer(player, world, input, delta) {
     const probeY = nextY + player.height;
     const left = Math.floor((player.x + 3) / TILE_SIZE);
     const right = Math.floor((player.x + player.width - 3) / TILE_SIZE);
-    for (let x = left; x <= right; x += 1) {
-      if (hasSolidAt(world, x * TILE_SIZE + 2, probeY)) { nextY = Math.floor(probeY / TILE_SIZE) * TILE_SIZE - player.height; player.vy = 0; player.grounded = true; break; }
+    const previousFeet = player.y + player.height;
+    // Scan every crossed row so a fast fall still lands on thin platforms.
+    landing: for (let y = Math.floor(previousFeet / TILE_SIZE); y <= Math.floor(probeY / TILE_SIZE); y += 1) {
+      for (let x = left; x <= right; x += 1) {
+        const definition = typeof world.get === "function" ? TILE_DEFS[world.get(x, y)] : null;
+        const platformLanding = definition?.oneWay && previousFeet <= y * TILE_SIZE + .01;
+        if (!world.isSolid(x, y) && !platformLanding) continue;
+        nextY = y * TILE_SIZE - player.height;
+        player.vy = definition?.bounce ? -PHYSICS.bounceSpeed : 0;
+        player.grounded = !definition?.bounce;
+        if (definition?.bounce) {
+          player.coyoteTime = 0;
+          player.jumpBuffer = 0;
+          onBounce?.(x, y);
+        }
+        break landing;
+      }
     }
   } else if (player.vy < 0) {
     const probeY = nextY;
@@ -93,6 +114,10 @@ export function updatePlayer(player, world, input, delta) {
     }
   }
   player.y = nextY;
+}
+
+export function respawnPlayer(player, spawn) {
+  Object.assign(player, { x: spawn.x, y: spawn.y, vx: 0, vy: 0, grounded: false, coyoteTime: 0, jumpBuffer: 0 });
 }
 
 export function playerOverlapsTile(player, tileX, tileY) {

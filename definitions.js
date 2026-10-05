@@ -51,6 +51,15 @@ export const TILE_DEFS = {
   61: { name: "Water", solid: false, unbreakable: true, water: true, color: "#39bde8", sprite: [268, 90, 20, 20] },
   62: { name: "Palm Tree", solid: false, breakTime: 520, harvest: { drops: [{ item: "wood_block", min: 1, max: 3 }, { item: "coconut_block", count: 1, chance: .5 }] }, color: "#42c66c", sprite: [292, 90, 20, 20] },
   63: { name: "Coconut Block", solid: true, breakTime: 360, drops: [{ item: "coconut_block", count: 1 }], color: "#8a552e", sprite: [280, 190, 20, 20] },
+  64: { name: "Wooden Platform", solid: false, oneWay: true, breakTime: 400, drops: [{ item: "wooden_platform", count: 1 }], color: "#df985b", sprite: [4, 250, 20, 20] },
+  65: { name: "Bounce Pad", solid: true, bounce: true, breakTime: 500, drops: [{ item: "bounce_pad", count: 1 }], color: "#d982ff", sprite: [28, 250, 20, 20] },
+  66: { name: "Ice Block", solid: true, ice: true, breakTime: 420, drops: [{ item: "ice_block", count: 1 }], color: "#9ae7ff", sprite: [52, 250, 20, 20] },
+  67: { name: "Spike Block", solid: false, hazard: true, breakTime: 500, drops: [{ item: "spike_block", count: 1 }], color: "#ef6683", sprite: [76, 250, 20, 20] },
+  68: { name: "Snow Block", solid: true, breakTime: 320, drops: [{ item: "snow_block", count: 1 }, { item: "snowball", count: 3 }], color: "#effaff", sprite: [100, 250, 20, 20] },
+  69: { name: "Snowy Pine Tree", solid: false, breakTime: 520, harvest: { drops: [{ item: "wood_block", min: 2, max: 4 }] }, color: "#64c9bd", sprite: [124, 250, 20, 20] },
+  70: { name: "Ice Crystal", solid: false, glow: true, breakTime: 450, drops: [{ item: "ice_crystal", count: 1 }, { item: "gems", min: 4, max: 8 }], color: "#b2a1ff", sprite: [148, 250, 20, 20] },
+  71: { name: "Icicle", solid: false, icicle: true, breakTime: 350, drops: [{ item: "icicle", count: 1 }], color: "#b0f3ff", sprite: [172, 250, 20, 20] },
+  72: { name: "Igloo Background Wall", solid: false, unbreakable: true, backgroundOnly: true, color: "#abcbdc", sprite: [268, 250, 20, 20] },
 
   40: { name: "Red Flower", solid: false, breakTime: 200, drops: [{ item: "red_flower_seed", count: 1, chance: .5 }, { item: "red_flower", count: 1, chance: .2 }], color: "#ff628c", sprite: [4, 60, 18, 18] },
   41: { name: "Blue Flower", solid: false, breakTime: 200, drops: [{ item: "blue_flower_seed", count: 1, chance: .5 }, { item: "blue_flower", count: 1, chance: .2 }], color: "#43b9ff", sprite: [26, 60, 18, 18] },
@@ -79,6 +88,15 @@ export function spliceResult(firstTile, secondTile) {
 }
 
 export const ITEM_DEFS = {
+  ice_crystal: { name: "Ice Crystal", placesTile: 70, color: "#b2a1ff", sprite: [148, 250, 20, 20], description: "Mine glowing crystals in ice caves. Place them as luminous decorations." },
+  icicle: { name: "Icicle", placesTile: 71, color: "#b0f3ff", sprite: [172, 250, 20, 20], description: "Hang below a solid ceiling. Shakes, then falls when someone approaches underneath." },
+  snowball: { name: "Snowball", throwable: true, color: "#effaff", sprite: [196, 250, 20, 20], description: "Mine Snow Blocks or buy in Tools & Upgrades. Select and click/tap or press E to throw. Harmless snowball tags!" },
+  igloo_kit: { name: "Igloo Kit", buildsIgloo: true, color: "#ceeafa", sprite: [220, 250, 20, 20], description: "Place on a clear 9-tile-wide area with 5 tiles of headroom. The doorway opens on the right." },
+  snow_block: { name: "Snow Block", placesTile: 68, color: "#effaff", sprite: [100, 250, 20, 20], description: "Mine snow in ice and snow worlds, then build with it." },
+  wooden_platform: { name: "Wooden Platform", placesTile: 64, color: "#df985b", sprite: [4, 250, 20, 20], description: "Jump through from below and land on top." },
+  bounce_pad: { name: "Bounce Pad", placesTile: 65, color: "#d982ff", sprite: [28, 250, 20, 20], description: "Land on top to launch high into the air." },
+  ice_block: { name: "Ice Block", placesTile: 66, color: "#9ae7ff", sprite: [52, 250, 20, 20], description: "Slippery footing: momentum takes longer to stop or reverse." },
+  spike_block: { name: "Spike Block", placesTile: 67, color: "#ef6683", sprite: [76, 250, 20, 20], description: "Touching spikes sends you to your checkpoint, or world spawn." },
   brick_seed: { name: "Brick Seed", placesTile: 37, color: "#f57e66", sprite: [246, 130, 18, 18], description: "Splice Clay and Rock Seeds on the same tile. Grows into a Brick Crop." },
   brick_block: { name: "Brick Block", placesTile: 54, color: "#f57e66", sprite: [100, 90, 20, 20], description: "A sturdy brick building block." },
   sand_block: { name: "Sand", placesTile: 55, color: "#f4d27b", sprite: [124, 90, 20, 20], description: "Beach sand. Combine with Rock for Glass." },
@@ -120,6 +138,14 @@ export const ITEM_DEFS = {
   world_lock: { name: "World Lock", placesTile: 7, color: "#f2c14e", sprite: [314, 64, 18, 18], description: "Locks a world so only you can build or break in it." },
 };
 
+// Make every terrain/decorative tile available to the admin catalogue, including
+// water, trees and crops that previously had no inventory item. Regular shops
+// still offer only their explicitly listed items.
+for (const [id, tile] of Object.entries(TILE_DEFS)) {
+  if (Number(id) === 0 || Object.values(ITEM_DEFS).some(item => item.placesTile === Number(id))) continue;
+  ITEM_DEFS[`tile_${id}`] = { name: tile.name, placesTile: Number(id), color: tile.color, sprite: tile.sprite, backgroundOnly: tile.backgroundOnly === true, description: `Place ${tile.name}.` };
+}
+
 export const SLOT_UPGRADE = { item: "inventory_slots", amount: 5, cost: 500 };
 
 export const SHOP_ITEMS = [
@@ -128,10 +154,26 @@ export const SHOP_ITEMS = [
   { item: "moon_seed", amount: 1, cost: 25 },
   { item: "dirt_block", amount: 4, cost: 4 },
   { item: "rock", amount: 2, cost: 6 },
+  { item: "igloo_kit", amount: 1, cost: 250 },
   { item: "checkpoint_block", amount: 1, cost: 500 },
+  { item: "parkour_package", name: "Parkour Package", amount: 1, cost: 1500, rewards: [
+    { item: "ice_block", amount: 15 },
+    { item: "spike_block", amount: 20 },
+    { item: "checkpoint_block", amount: 4 },
+    { item: "lava_block", amount: 35 },
+    { item: "wooden_platform", amount: 15 },
+    { item: "bounce_pad", amount: 5 },
+  ] },
   SLOT_UPGRADE,
   { item: "pickaxe", amount: 1, cost: 750 },
+  { item: "snowball", amount: 20, cost: 10 },
   { item: "world_lock", amount: 1, cost: 15000 },
+];
+
+export const SHOP_SECTIONS = [
+  { id: "seeds", name: "Seeds & Growing", icon: "dirt_seed", description: "Seeds and surprise packages", items: ["seed_package", "dirt_seed", "moon_seed"] },
+  { id: "building", name: "Building Blocks", icon: "dirt_block", description: "Blocks, igloos and parkour packs", items: ["dirt_block", "rock", "igloo_kit", "checkpoint_block", "parkour_package"] },
+  { id: "upgrades", name: "Tools & Upgrades", icon: "pickaxe", description: "Equipment, snowballs and upgrades", items: ["pickaxe", "snowball", "inventory_slots", "world_lock"] },
 ];
 
 export function isSolid(tileId) {

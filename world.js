@@ -1,5 +1,6 @@
 import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 import { TILE_DEFS, isSolid } from "./definitions.js";
+import { buildIgloo, restoreIglooBackgrounds } from "./igloo.js";
 
 const FLOWER_GROW_INTERVAL = 3600000;
 const FLOWERS_PER_GROWTH = 5;
@@ -18,6 +19,8 @@ export class World {
     this.naturalFlowers = [];
     this.worldType = "sky";
     this.blockSettings = {};
+    this.penguinHomes = [];
+    this.iglooBackgroundVersion = 1;
   }
 
   index(x, y) { return y * this.width + x; }
@@ -83,6 +86,7 @@ export class World {
   updateFlowers(now = Date.now()) {
     // Run even between growth cycles to repair flowers in already-dug worlds.
     this.settleFlowers();
+    if (this.worldType === "ice") return 0;
     if (now - this.flowerGrownAt < FLOWER_GROW_INTERVAL) return 0;
     this.flowerGrownAt = now;
     this.naturalFlowers = (this.naturalFlowers ?? []).filter((flower) => {
@@ -112,6 +116,8 @@ export class World {
       naturalFlowers: this.naturalFlowers,
       worldType: this.worldType,
       blockSettings: this.blockSettings,
+      penguinHomes: this.penguinHomes,
+      iglooBackgroundVersion: this.iglooBackgroundVersion,
     };
   }
 
@@ -125,17 +131,18 @@ export class World {
     world.plantedTiles = Array.isArray(data.plantedTiles) ? data.plantedTiles.filter((plant) => world.inBounds(plant.x, plant.y)) : [];
     world.flowerGrownAt = Number.isFinite(data.flowerGrownAt) ? data.flowerGrownAt : Date.now();
     world.naturalFlowers = Array.isArray(data.naturalFlowers) ? data.naturalFlowers.filter((flower) => world.inBounds(flower.x, flower.y)) : [];
-    world.worldType = data.worldType === "beach" ? "beach" : "sky";
+    world.worldType = ["beach", "ice"].includes(data.worldType) ? data.worldType : "sky";
     world.blockSettings = data.blockSettings && typeof data.blockSettings === "object" ? data.blockSettings : {};
+    world.penguinHomes = Array.isArray(data.penguinHomes) ? data.penguinHomes.filter((home) => Number.isInteger(home.x) && Number.isInteger(home.y) && world.inBounds(home.x, home.y)).map(({ x, y }) => ({ x, y })) : [];
     world.cleanupLegacyTiles();
+    if (!data.iglooBackgroundVersion) restoreIglooBackgrounds(world);
     world.updatePlants();
     return world;
   }
 
-  // Older saves kept faint background blocks behind the terrain and the retired
-  // Sky Market tile; both are stripped whenever a world is loaded.
+  // Keep igloo walls while stripping retired terrain backgrounds and unknown tiles.
   cleanupLegacyTiles() {
-    this.background.fill(0);
+    for (let index = 0; index < this.background.length; index++) if (this.background[index] !== 72) this.background[index] = 0;
     for (let x = 0; x < this.width; x += 1) {
       for (let y = 0; y < this.height; y += 1) {
         const tileId = this.foreground[this.index(x, y)];
@@ -181,7 +188,55 @@ function generateBeachWorld() {
   return world;
 }
 
+function generateIceWorld() {
+  const world = new World();
+  world.worldType = "ice";
+  for (let x = 0; x < world.width; x += 1) {
+    const frozenLake = x >= 72 && x <= 113;
+    const spawnArea = x >= 12 && x <= 22;
+    const surface = frozenLake || spawnArea ? 39 : Math.round(39 + Math.sin(x * .13) * 2 + Math.sin(x * .045));
+    world.surface[x] = surface;
+    for (let y = surface; y < world.height; y += 1) {
+      if (y === world.height - 1) world.set(x, y, 3);
+      else if (frozenLake && y < surface + 4) world.set(x, y, 66);
+      else if (y < surface + 5) world.set(x, y, 68);
+      else world.set(x, y, 2);
+    }
+  }
+  world.set(16, world.surface[16] - 1, 6);
+  for (const center of [32, 120]) {
+    const floor = world.surface[center];
+    for (let x = center - 4; x <= center + 4; x++) {
+      world.surface[x] = floor;
+      for (let y = floor - 5; y <= floor + 1; y++) world.set(x, y, y >= floor ? 68 : 0);
+    }
+    buildIgloo(world, center, floor);
+  }
+  for (const x of [6, 27, 48, 60, 125]) world.set(x, world.surface[x] - 1, 69);
+  // Connected underground rooms, with a ladder shaft away from the frozen lake.
+  for (const room of [{ x: 52, y: 52, rx: 13, ry: 5 }, { x: 99, y: 55, rx: 14, ry: 5 }]) {
+    for (let y = room.y - room.ry; y <= room.y + room.ry; y++) for (let x = room.x - room.rx; x <= room.x + room.rx; x++) {
+      if (((x - room.x) / room.rx) ** 2 + ((y - room.y) / room.ry) ** 2 < 1) world.set(x, y, 0);
+    }
+  }
+  for (let x = 52; x <= 100; x++) for (let y = 53; y <= 55; y++) world.set(x, y, 0);
+  for (let y = world.surface[66] - 1; y <= 55; y++) { world.set(66, y, 59); world.set(67, y, 0); }
+  for (const x of [43, 49, 57, 61, 88, 94, 102, 108]) {
+    let floor = 52;
+    while (!world.isSolid(x, floor) && floor < 65) floor++;
+    if (world.get(x, floor - 1) === 0) world.set(x, floor - 1, 70);
+  }
+  for (const x of [46, 55, 91, 99, 106]) {
+    for (let y = 45; y < 57; y++) {
+      if (world.isSolid(x, y - 1) && world.get(x, y) === 0 && world.get(x, y + 1) === 0) { world.set(x, y, 71); break; }
+    }
+  }
+  world.penguinHomes = [78, 87, 101, 110].map((x) => ({ x, y: world.surface[x] - 1 }));
+  return world;
+}
+
 export function generateWorld(worldName = "") {
+  if (/^(ice|snow)/i.test(String(worldName))) return generateIceWorld();
   if (String(worldName).toLowerCase().startsWith("beach")) return generateBeachWorld();
   const world = new World();
   for (let x = 0; x < world.width; x += 1) {

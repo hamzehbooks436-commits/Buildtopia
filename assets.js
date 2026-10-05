@@ -227,6 +227,91 @@ export function createTileAtlas() {
     return x + y < 17 ? "#ffd18b" : "#df985b";
   });
 
+  // Parkour blocks in isolated atlas slots. Platform feet meet its top edge.
+  paint([4, 250, 20, 20], (x, y) => {
+    if (y > 5) return null;
+    if (y === 0) return "#fff5b4";
+    if (y === 5 || x % 7 === 0) return "#945232";
+    if ((x === 3 || x === 16) && y === 3) return "#705a9e";
+    return "#df985b";
+  });
+  paint([28, 250, 20, 20], (x, y) => {
+    if (y < 4) return y === 0 ? "#f5c2ff" : "#d982ff";
+    if (y >= 16) return y === 19 ? "#7369b9" : "#9992e4";
+    if (x < 4 || x > 15) return null;
+    if ((x + y) % 6 < 2 || (x - y + 24) % 6 < 2) return "#fff59b";
+    return null;
+  });
+  paint([52, 250, 20, 20], (x, y) => {
+    if (x === 0 || y === 0) return "#ffffff";
+    if (x === 19 || y === 19) return "#4f96e8";
+    if (x + y === 11 || x + y === 12 || (x + y === 23 && x > 8)) return "#dbfbff";
+    if ((x === 13 && y >= 12 && y <= 15) || (y === 13 && x >= 12 && x <= 15)) return "#ffffff";
+    return "#9ae7ff";
+  });
+  paint([76, 250, 20, 20], (x, y) => {
+    if (y >= 16) return y === 19 ? "#a93863" : "#ef6683";
+    const tip = 2 + Math.floor(x / 5) * 5;
+    if (Math.abs(x - tip) > y / 6) return null;
+    return x <= tip ? "#dbfbff" : "#8490cc";
+  });
+
+  paint([100, 250, 20, 20], (x, y) => {
+    if (y < 3 || x === 0) return "#ffffff";
+    if (y === 19 || x === 19) return "#96c9e6";
+    if ((x >= 4 && x <= 7 && y === 9) || (x >= 12 && x <= 15 && y === 15)) return "#ceeafa";
+    return "#effaff";
+  });
+  paint([124, 250, 20, 20], (x, y) => {
+    if (y >= 16 && x >= 8 && x <= 11) return x === 8 ? "#df985b" : "#945232";
+    const distance = Math.abs(x - 9.5);
+    const tier = y < 6 ? y * .7 : y < 11 ? (y - 4) * .85 : (y - 8) * 1.1;
+    if (y > 16 || distance > tier) return null;
+    if (y < 3 || y === 6 || y === 11 || distance > tier - 1) return "#effaff";
+    return x < 10 ? "#64c9bd" : "#298d86";
+  });
+
+  paint([148, 250, 20, 20], (x, y) => {
+    const middle = x >= 7 && x <= 12 && y >= Math.abs(x - 9.5) + 1 && y <= 18;
+    const left = x >= 2 && x <= 6 && y >= 8 + Math.abs(x - 4) && y <= 18;
+    const right = x >= 13 && x <= 17 && y >= 6 + Math.abs(x - 15) && y <= 18;
+    if (!(middle || left || right)) return null;
+    if (x === 7 || x === 2 || x === 13 || y === 18) return "#7466d9";
+    return x <= 9 ? "#e2faff" : x <= 12 ? "#98cfff" : "#b2a1ff";
+  });
+  paint([172, 250, 20, 20], (x, y) => {
+    if (Math.abs(x - 9.5) > (19 - y) * .33) return null;
+    if (y === 0) return "#fff";
+    return x < 9 ? "#dbfbff" : x < 11 ? "#b0f3ff" : "#6aaedc";
+  });
+  paint([196, 250, 20, 20], (x, y) => {
+    const radius = Math.hypot(x - 9.5, y - 9.5);
+    if (radius > 7) return null;
+    return radius > 5.5 ? "#b5d5e9" : x + y < 20 ? "#fff" : "#e2faff";
+  });
+  paint([220, 250, 20, 20], (x, y) => {
+    if (y < 4 || y > 18 || Math.hypot((x - 9.5) / 9, (y - 15) / 11) > 1) return null;
+    if (x >= 10 && x <= 14 && y >= 12) return "#325678";
+    if (y % 4 === 0 || (x + (Math.floor(y / 4) % 2) * 3) % 7 === 0) return "#a7ccdf";
+    return y < 9 ? "#fff" : "#e2faff";
+  });
+  paint([244, 250, 20, 20], (x, y) => {
+    if (y >= 18 && ((x >= 4 && x <= 8) || (x >= 11 && x <= 15))) return "#ffbf64";
+    if (y >= 10 && y < 16 && (x === 2 || x === 17)) return "#354c6f";
+    if (Math.hypot((x - 9.5) / 7, (y - 10) / 9) > 1) return null;
+    if ((x === 7 || x === 12) && y === 6) return "#08132f";
+    if (x >= 8 && x <= 11 && y >= 8 && y <= 9) return "#ffbf64";
+    if (Math.hypot((x - 9.5) / 4.7, (y - 11) / 7) < 1) return "#effaff";
+    return x < 9 ? "#354c6f" : "#172c48";
+  });
+
+  paint([268, 250, 20, 20], (x, y) => {
+    const joint = (x + (Math.floor(y / 5) % 2) * 5) % 10;
+    if (y % 5 === 0 || joint === 0) return "#799fb8";
+    if (y % 5 === 1) return "#c7e0ec";
+    return "#abcbdc";
+  });
+
   // Wrench inventory tool.
   paint([314, 112, 18, 18], (x, y) => {
     if (x <= 8 && y <= 8 && Math.hypot(x - 4, y - 4) <= 4) {
@@ -299,7 +384,39 @@ export function createTileAtlas() {
 
 export async function loadAssets() {
   const sky = await loadImage("./skytexture.jpg");
-  return { sky, sunsetSky: createSunsetSky(), tiles: createTileAtlas() };
+  return { sky, sunsetSky: createSunsetSky(), winterDaySky: createWinterSky(false), winterNightSky: createWinterSky(true), tiles: createTileAtlas() };
+}
+
+export function createWinterSky(night) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 520;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, 0, 520);
+  gradient.addColorStop(0, night ? "#08132f" : "#72bde5");
+  gradient.addColorStop(1, night ? "#244e73" : "#e1f6ff");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 900, 520);
+  ctx.fillStyle = night ? "#f2f4ff" : "#fff5cb";
+  ctx.beginPath();
+  ctx.arc(715, 100, night ? 24 : 34, 0, Math.PI * 2);
+  ctx.fill();
+  if (night) {
+    for (let i = 0; i < 85; i++) {
+      ctx.globalAlpha = .35 + (i % 5) * .13;
+      ctx.fillRect((i * 127 + 19) % 900, (i * 71 + 13) % 330, i % 9 === 0 ? 2 : 1, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  for (let layer = 0; layer < 2; layer++) {
+    ctx.fillStyle = night ? (layer ? "#35637d" : "#274660") : (layer ? "#b4d8e9" : "#98bfd8");
+    ctx.beginPath();
+    ctx.moveTo(0, 520);
+    for (let x = 0; x <= 960; x += 80) ctx.lineTo(x, 360 + layer * 55 - Math.sin(x * .02 + layer * 2) * 55);
+    ctx.lineTo(900, 520);
+    ctx.fill();
+  }
+  return canvas;
 }
 
 export function createSunsetSky() {

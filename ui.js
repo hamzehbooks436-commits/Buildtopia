@@ -1,6 +1,7 @@
 import { HOTBAR_SIZE, TILE_SIZE } from "./config.js";
-import { ITEM_DEFS, SHOP_ITEMS, TILE_DEFS } from "./definitions.js";
+import { ITEM_DEFS, SHOP_ITEMS, SHOP_SECTIONS, TILE_DEFS } from "./definitions.js";
 import { countItem } from "./inventory.js";
+import { winterWeather } from "./winter.js";
 
 function roundedRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
@@ -27,6 +28,7 @@ export function drawItemIcon(ctx, assets, itemId, x, y, size) {
 }
 
 export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
+  if (worldType === "ice") { drawWinterSky(ctx, assets, camera, width, height); return; }
   const image = worldType === "beach" ? assets.sunsetSky : assets.sky;
   const scale = Math.max(width / image.width, height / image.height);
   const drawWidth = image.width * scale;
@@ -38,13 +40,161 @@ export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
   ctx.fillRect(0, 0, width, height);
 }
 
-export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background = false) {
+function drawWinterSky(ctx, assets, camera, width, height) {
+  const now = Date.now();
+  const weather = winterWeather(now);
+  const paintSky = (image) => {
+    const scale = Math.max(width / image.width, height / image.height);
+    ctx.drawImage(image, 0, 0, image.width * scale, image.height * scale);
+  };
+  ctx.save();
+  paintSky(assets.winterDaySky);
+  if (weather.nightAmount > 0) {
+    ctx.globalAlpha = weather.nightAmount;
+    paintSky(assets.winterNightSky);
+    drawAurora(ctx, width, height, weather, now);
+  }
+  ctx.globalAlpha = .1;
+  ctx.fillStyle = "#b4d8e9";
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawAurora(ctx, width, height, weather, now) {
+  const seconds = now / 1000;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  // Two independent curtains: bright folded lower edges and rays fading upward.
+  // Cap the ray count so large displays do not multiply the drawing cost.
+  const step = Math.max(2, width / 260);
+  for (let curtain = 0; curtain < 2; curtain++) {
+    const drift = seconds * .075 + curtain * 2.7;
+    const hue = weather.colors[curtain];
+    const topHue = weather.colors[(curtain + 2) % 3];
+    const edge = (u) => height * (.32 + curtain * .09
+      + Math.sin(u * 6.2 + drift) * .042
+      + Math.sin(u * 14 - drift * .6) * .022
+      + Math.sin(u * 27 + drift * 1.2) * .009);
+    // Soft bloom follows the curtain instead of filling a flat band.
+    ctx.beginPath();
+    for (let x = -step; x <= width + step; x += step) {
+      const y = edge(x / width);
+      if (x === -step) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `hsla(${hue}, 85%, 65%, .15)`;
+    ctx.globalAlpha = weather.nightAmount * .75;
+    ctx.lineWidth = height * .028;
+    ctx.shadowColor = `hsl(${hue}, 90%, 60%)`;
+    ctx.shadowBlur = height * .045;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    for (let x = 0; x < width; x += step) {
+      const u = x / width;
+      const base = edge(u);
+      const envelope = Math.pow(Math.max(0, Math.sin(u * Math.PI)), .6);
+      const fold = .5 + .5 * Math.sin(u * 39 + drift * 1.8 + Math.sin(u * 12 - drift));
+      const filament = .5 + .5 * Math.sin(u * 191 - seconds * .13 + curtain);
+      const length = height * (.13 + .09 * fold + .025 * Math.sin(u * 17 + drift));
+      const gradient = ctx.createLinearGradient(x, base - length, x, base + height * .009);
+      gradient.addColorStop(0, `hsla(${topHue}, 80%, 70%, 0)`);
+      gradient.addColorStop(.23, `hsla(${topHue}, 80%, 70%, .06)`);
+      gradient.addColorStop(.65, `hsla(${hue}, 90%, 66%, .22)`);
+      gradient.addColorStop(.94, `hsla(${hue}, 90%, 72%, .62)`);
+      gradient.addColorStop(1, `hsla(${hue}, 90%, 65%, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.globalAlpha = weather.nightAmount * envelope * (.2 + fold * .5) * (.45 + filament * .55) * (.8 + .2 * Math.sin(seconds * .2 + curtain));
+      ctx.fillRect(x, base - length, step * .86, length + height * .009);
+    }
+  }
+  ctx.restore();
+}
+
+export function drawWinterSnow(ctx, camera, width, height) {
+  const now = Date.now();
+  const { snowIntensity } = winterWeather(now);
+  if (!snowIntensity) return;
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  const seconds = now / 1000;
+  const wrap = (value, length) => ((value % length) + length) % length;
+  const count = Math.ceil(width * height / 8500);
+  for (let i = 0; i < count; i++) {
+    const depth = .45 + (i % 4) * .15;
+    const x = wrap(i * 137 + seconds * (7 + depth * 9) + Math.sin(seconds * .5 + i) * 14 - camera.x * depth * .08, width + 10) - 5;
+    const y = wrap(i * 83 + seconds * (18 + depth * 25) - camera.y * depth * .08, height + 10) - 5;
+    ctx.globalAlpha = snowIntensity * depth;
+    ctx.fillRect(x, y, i % 5 === 0 ? 3 : 2, i % 5 === 0 ? 3 : 2);
+  }
+  ctx.restore();
+}
+
+export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background = false, bounceAge = -1) {
   const definition = TILE_DEFS[tileId];
   if (!definition || tileId === 0) return;
   ctx.save();
-  if (background) ctx.globalAlpha = .19;
+  if (background) ctx.globalAlpha = definition.backgroundOnly ? .9 : .19;
   ctx.imageSmoothingEnabled = false;
-  drawSprite(ctx, assets.tiles, definition.sprite, x, y, size);
+  if (definition.glow) {
+    const pulse = .8 + Math.sin(Date.now() / 750 + x / 50) * .2;
+    const glow = ctx.createRadialGradient(x + size / 2, y + size / 2, 0, x + size / 2, y + size / 2, size * 2.5);
+    glow.addColorStop(0, `rgba(158,175,255,${.38 * pulse})`);
+    glow.addColorStop(1, "rgba(138,166,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - size * 2, y - size * 2, size * 5, size * 5);
+  }
+  if (definition.bounce && bounceAge >= 0 && bounceAge < .6 && assets.tiles) {
+    // Split the existing sprite: the base stays planted while the spring and cap move.
+    const [sx, sy, sw] = definition.sprite;
+    const unit = size / 20;
+    const compression = bounceAge < .07
+      ? .48 * Math.sin(bounceAge / .07 * Math.PI / 2)
+      : .48 * Math.exp(-9 * (bounceAge - .07)) * Math.cos(30 * (bounceAge - .07));
+    const springHeight = 12 * unit * (1 - compression);
+    const springBottom = y + 16 * unit;
+    const springTop = springBottom - springHeight;
+    ctx.drawImage(assets.tiles, sx, sy + 16, sw, 4, x, springBottom, size, 4 * unit);
+    ctx.drawImage(assets.tiles, sx, sy + 4, sw, 12, x, springTop, size, springHeight);
+    ctx.drawImage(assets.tiles, sx, sy, sw, 4, x, springTop - 4 * unit, size, 4 * unit);
+  } else drawSprite(ctx, assets.tiles, definition.sprite, x, y, size);
+  ctx.restore();
+}
+
+export function drawWinterActivities(ctx, assets, activities, camera) {
+  const now = Date.now();
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  for (const penguin of activities.penguins) {
+    const bob = penguin.grounded ? Math.sin(now / 130 + penguin.homeX) * 1.2 : 0;
+    ctx.save();
+    ctx.translate(penguin.x - camera.x + penguin.width / 2, penguin.y - camera.y + bob);
+    ctx.scale(penguin.direction, 1);
+    ctx.drawImage(assets.tiles, 244, 250, 20, 20, -penguin.width / 2, 0, penguin.width, penguin.height);
+    ctx.restore();
+  }
+  for (const icicle of activities.fallingIcicles) {
+    if (icicle.warning) {
+      ctx.fillStyle = "rgba(255,190,100,.7)";
+      ctx.fillRect(icicle.x - camera.x + 10, icicle.y - camera.y + 35, 12, 3);
+    }
+    ctx.drawImage(assets.tiles, 172, 250, 20, 20, icicle.x - camera.x, icicle.y - camera.y, TILE_SIZE, TILE_SIZE);
+  }
+  ctx.fillStyle = "#fff";
+  for (const shot of activities.snowballs) {
+    const x = shot.currentX - camera.x, y = shot.currentY - camera.y;
+    ctx.globalAlpha = .25;
+    ctx.fillRect(x - shot.vx * .025 - 2, y - (shot.vy + 420 * shot.elapsed) * .025 - 2, 4, 4);
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+  }
+  for (const splash of activities.splashes) {
+    const progress = (now - splash.at) / 450;
+    ctx.globalAlpha = 1 - progress;
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4;
+      ctx.fillRect(splash.x - camera.x + Math.cos(angle) * progress * 22, splash.y - camera.y + Math.sin(angle) * progress * 22, 3, 3);
+    }
+  }
   ctx.restore();
 }
 
@@ -109,7 +259,8 @@ function drawSlot(ctx, assets, inventory, index, x, y, size, selected) {
     ctx.fillStyle = "#fff";
     ctx.font = "700 12px system-ui";
     ctx.textAlign = "right";
-    ctx.fillText(slot.count, x + size - 7, y + size - 7);
+    const countLabel = slot.count >= 1000000 ? `${(slot.count / 1000000).toFixed(1)}m` : slot.count >= 10000 ? `${(slot.count / 1000).toFixed(1)}k` : String(slot.count);
+    ctx.fillText(countLabel, x + size - 7, y + size - 7, size - 10);
   }
   ctx.fillStyle = selected ? "#06435a" : "#acd2d9";
   ctx.font = "700 10px system-ui";
@@ -133,10 +284,10 @@ export function drawHotbar(ctx, assets, inventory, selectedSlot, width, height) 
 }
 
 export function drawInventoryPanel(ctx, assets, inventory, selectedSlot, width, height, drag = null) {
-  const columns = 5;
+  const columns = inventory.length > 40 && width >= 700 ? 10 : 5;
   const gap = 7;
   const rows = Math.ceil(inventory.length / columns);
-  const slotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (columns - 1) * gap) / columns)));
+  const slotSize = Math.min(58, Math.max(18, Math.min(Math.floor((width - 28 - (columns - 1) * gap) / columns), Math.floor((height - 145 - (rows - 1) * gap) / rows))));
   const gridWidth = columns * slotSize + (columns - 1) * gap;
   const left = Math.round((width - gridWidth) / 2);
   const hotbarSlotSize = Math.min(58, Math.max(30, Math.floor((width - 28 - (HOTBAR_SIZE - 1) * gap) / HOTBAR_SIZE)));
@@ -263,14 +414,27 @@ export function drawHud(ctx, assets, state, width) {
   ctx.restore();
 }
 
-export function drawShop(ctx, assets, inventory, width, height) {
+export function drawShop(ctx, assets, inventory, width, height, sectionId = null, admin = false) {
+  const section = SHOP_SECTIONS.find((entry) => entry.id === sectionId);
+  const sections = admin ? [...SHOP_SECTIONS, { id: "admin", name: "Admin · Blocks & NPCs", icon: "world_lock", description: "Any item, any quantity · NPC editor" }] : SHOP_SECTIONS;
+  const entries = section ? SHOP_ITEMS.filter((offer) => section.items.includes(offer.item)) : sections;
+  const columns = width < 560 ? 1 : 2;
   ctx.fillStyle = "rgba(1, 30, 43, .62)";
   ctx.fillRect(0, 0, width, height);
-  const panelWidth = Math.min(570, width - 36);
-  const rows = Math.ceil(SHOP_ITEMS.length / 2);
-  const panelHeight = 111 + (rows - 1) * 93 + 75 + 30;
+  const panelWidth = Math.min(650, width - 24);
+  const rows = Math.ceil(entries.length / columns);
+  const cardHeight = entries.some((entry) => entry.rewards) ? 116 : 75;
+  const rowStep = cardHeight + 18;
+  const panelHeight = 145 + (rows - 1) * rowStep + cardHeight + 24;
+  // Fit all offers on small displays; hit testing uses the same transform.
+  const scale = Math.min(1, Math.max(1, height - 32) / panelHeight);
   const x = (width - panelWidth) / 2;
-  const y = Math.max(60, (height - panelHeight - 40) / 2);
+  const y = (height - panelHeight * scale) / 2;
+  const offsetX = width * (1 - scale) / 2;
+  ctx.save();
+  ctx.translate(offsetX, y);
+  ctx.scale(scale, scale);
+  ctx.translate(0, -y);
   ctx.fillStyle = "#075b79";
   roundedRect(ctx, x, y, panelWidth, panelHeight, 22);
   ctx.fill();
@@ -280,29 +444,69 @@ export function drawShop(ctx, assets, inventory, width, height) {
   ctx.fillStyle = "#fff";
   ctx.font = "800 24px system-ui";
   ctx.textAlign = "left";
-  ctx.fillText("Sky Market", x + 28, y + 44);
+  ctx.fillText(section?.name ?? "Sky Market", x + 22, y + 42, panelWidth - 115);
   ctx.fillStyle = "#c9eaf0";
   ctx.font = "600 13px system-ui";
   ctx.fillText(`You have ${countItem(inventory, "gems")} Sky Gems`, x + 28, y + 68);
-  ctx.fillText("Choose an item, or press Escape to leave.", x + 28, y + 88);
+  ctx.fillText(section ? "Choose an item to buy." : "Open a section to browse its items.", x + 28, y + 88);
 
-  const cardWidth = (panelWidth - 54) / 2;
-  SHOP_ITEMS.forEach((offer, index) => {
-    const col = index % 2;
-    const row = Math.floor(index / 2);
-    const cardX = x + 18 + col * (cardWidth + 18);
-    const cardY = y + 111 + row * 93;
-    ctx.fillStyle = "#06435a";
-    roundedRect(ctx, cardX, cardY, cardWidth, 75, 14);
+  const buttons = [];
+  function button(label, bx, by, bw, action) {
+    ctx.fillStyle = "#1688b7";
+    roundedRect(ctx, bx, by, bw, 32, 8);
     ctx.fill();
-    if (offer.item === "seed_package") {
+    ctx.fillStyle = "#fff";
+    ctx.font = "700 13px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText(label, bx + bw / 2, by + 21);
+    ctx.textAlign = "left";
+    buttons.push({ x: bx, y: by, width: bw, height: 32, action });
+  }
+  button("Close", x + panelWidth - 82, y + 18, 64, { kind: "close" });
+  if (section) button("‹ All sections", x + 18, y + 102, 125, { kind: "back" });
+  const cardWidth = (panelWidth - 36 - (columns - 1) * 18) / columns;
+  const cards = [];
+
+  entries.forEach((offer, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const cardX = x + 18 + col * (cardWidth + 18);
+    const cardY = y + 145 + row * rowStep;
+    cards.push({ x: cardX, y: cardY, width: cardWidth, height: cardHeight, action: section ? { kind: "buy", offer } : { kind: "section", sectionId: offer.id } });
+    ctx.fillStyle = "#06435a";
+    roundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 14);
+    ctx.fill();
+    if (!section) {
+      drawItemIcon(ctx, assets, offer.icon, cardX + 12, cardY + 14, 46);
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 14px system-ui";
+      ctx.fillText(offer.name, cardX + 68, cardY + 26, cardWidth - 78);
+      ctx.fillStyle = "#c9eaf0";
+      ctx.font = "600 11px system-ui";
+      ctx.fillText(offer.description, cardX + 68, cardY + 45, cardWidth - 78);
+      ctx.fillStyle = "#ffe77a";
+      ctx.fillText("Open section ›", cardX + 68, cardY + 64);
+      return;
+    }
+    if (offer.rewards) {
+      drawItemIcon(ctx, assets, "bounce_pad", cardX + 12, cardY + 14, 46);
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 14px system-ui";
+      ctx.fillText(offer.name, cardX + 68, cardY + 30, cardWidth - 78);
+      ctx.fillStyle = "#c9eaf0";
+      ctx.font = "600 11px system-ui";
+      for (let i = 0; i < offer.rewards.length; i += 2) {
+        const label = offer.rewards.slice(i, i + 2).map((reward) => `${reward.amount} ${ITEM_DEFS[reward.item].name}`).join(" · ");
+        ctx.fillText(label, cardX + 12, cardY + 72 + (i / 2) * 16, cardWidth - 24);
+      }
+    } else if (offer.item === "seed_package") {
       drawItemIcon(ctx, assets, "red_flower_seed", cardX + 12, cardY + 12, 28);
       drawItemIcon(ctx, assets, "blue_block_seed", cardX + 32, cardY + 23, 28);
       drawItemIcon(ctx, assets, "dirt_seed", cardX + 12, cardY + 38, 28);
       ctx.fillStyle = "#fff";
       ctx.font = "800 14px system-ui";
       ctx.textAlign = "left";
-      ctx.fillText("3 Random Seeds", cardX + 68, cardY + 30);
+      ctx.fillText("3 Random Seeds", cardX + 68, cardY + 30, cardWidth - 78);
     } else if (offer.item === "inventory_slots") {
       ctx.fillStyle = "#1688b7";
       roundedRect(ctx, cardX + 14, cardY + 14, 44, 48, 12);
@@ -317,33 +521,37 @@ export function drawShop(ctx, assets, inventory, width, height) {
       ctx.fillStyle = "#fff";
       ctx.font = "800 14px system-ui";
       ctx.textAlign = "left";
-      ctx.fillText(`+${offer.amount} Inventory Slots`, cardX + 68, cardY + 30);
+      ctx.fillText(`+${offer.amount} Inventory Slots`, cardX + 68, cardY + 30, cardWidth - 78);
     } else {
       drawItemIcon(ctx, assets, offer.item, cardX + 12, cardY + 14, 46);
       ctx.fillStyle = "#fff";
       ctx.font = "800 14px system-ui";
       ctx.textAlign = "left";
-      ctx.fillText(`${offer.amount}× ${ITEM_DEFS[offer.item].name}`, cardX + 68, cardY + 30);
+      ctx.fillText(`${offer.amount}× ${ITEM_DEFS[offer.item].name}`, cardX + 68, cardY + 30, cardWidth - 78);
     }
     ctx.fillStyle = "#ffe77a";
     ctx.font = "700 12px system-ui";
     ctx.fillText(`${offer.cost.toLocaleString()} gems`, cardX + 68, cardY + 51);
     ctx.fillStyle = "#acd2d9";
     ctx.font = "700 11px system-ui";
-    ctx.fillText(offer.item === "seed_package" ? "Any seed · repeats possible" : "Click to buy", cardX + 68, cardY + 67);
+    if (!offer.rewards) ctx.fillText(offer.item === "seed_package" ? "Any seed · repeats possible" : "Click to buy", cardX + 68, cardY + 67);
   });
-  return { x, y, panelWidth, cardWidth };
+  ctx.restore();
+  return { x, y, panelWidth, panelHeight, cardWidth, scale, offsetX, sectionId: section?.id ?? null, cards, buttons };
+}
+
+export function shopActionAt(point, layout) {
+  if (!layout) return null;
+  const { y } = layout;
+  const scale = layout.scale ?? 1;
+  point = { x: (point.x - (layout.offsetX ?? 0)) / scale, y: (point.y - y) / scale + y };
+  for (const target of [...layout.buttons, ...layout.cards]) {
+    if (point.x >= target.x && point.x <= target.x + target.width && point.y >= target.y && point.y <= target.y + target.height) return target.action;
+  }
+  return null;
 }
 
 export function shopOfferAt(point, layout) {
-  if (!layout) return null;
-  const { x, y, cardWidth } = layout;
-  for (let index = 0; index < SHOP_ITEMS.length; index += 1) {
-    const col = index % 2;
-    const row = Math.floor(index / 2);
-    const cardX = x + 18 + col * (cardWidth + 18);
-    const cardY = y + 111 + row * 93;
-    if (point.x >= cardX && point.x <= cardX + cardWidth && point.y >= cardY && point.y <= cardY + 75) return SHOP_ITEMS[index];
-  }
-  return null;
+  const action = shopActionAt(point, layout);
+  return action?.kind === "buy" ? action.offer : null;
 }

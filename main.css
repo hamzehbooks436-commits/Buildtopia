@@ -174,6 +174,38 @@ canvas { touch-action: none; }
 .recipe-arrow { color: #74d9ff; font-size: 1.2rem; font-weight: 900; }
 .feature-panel { position: absolute; z-index: 6; top: 50%; left: 50%; width: min(500px, calc(100vw - 34px)); max-height: calc(100vh - 34px); overflow: auto; padding: 25px; transform: translate(-50%, -50%); color: #f5ffff; background: linear-gradient(145deg, rgba(7,91,121,.99), rgba(5,53,76,.99)); border: 1px solid rgba(255,255,255,.3); border-radius: 22px; box-shadow: 0 24px 70px rgba(1,30,43,.68); }
 .feature-panel[hidden] { display: none; }
+.admin-panel { width: min(660px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overscroll-behavior: contain; }
+.admin-panel .panel-form { margin-top: 18px; }
+.admin-panel h3 { margin: 24px 0 12px; color: #ffe77a; }
+.admin-panel textarea { width: 100%; padding: 11px 12px; color: #fff; background: rgba(2,38,55,.72); border: 1px solid rgba(255,255,255,.3); border-radius: 10px; font: inherit; resize: vertical; }
+.admin-panel input[type="checkbox"] { width: 20px; height: 20px; }
+.admin-panel input[type="color"] { height: 44px; padding: 4px; }
+.npc-coordinates, .npc-appearance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.npc-list { display: grid; gap: 10px; margin-top: 16px; }
+.npc-list-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; background: #06435a; border-radius: 12px; }
+.npc-list-row span { overflow-wrap: anywhere; }
+.npc-offer-editor { min-width: 0; display: grid; gap: 14px; padding: 16px; margin: 12px 0; border: 1px solid #6fc6db; border-radius: 14px; }
+.npc-offer-editor legend { padding: 0 7px; color: #ffe77a; font-weight: 800; }
+.npc-line-group, .npc-line-rows { display: grid; gap: 9px; }
+.npc-item-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px auto; gap: 8px; }
+.npc-item-row button { padding: 8px 12px; }
+.npc-dialogue { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.npc-actions { display: grid; gap: 12px; }
+.npc-offer { padding: 14px; background: #06435a; border: 1px solid rgba(255,255,255,.2); border-radius: 14px; }
+.npc-offer p { margin: 10px 0 0; color: #d1edf2; font-size: .85rem; overflow-wrap: anywhere; }
+.admin-panel button:disabled { opacity: .55; cursor: default; }
+.admin-panel canvas { display: block; position: static; width: auto; height: auto; max-width: 144px; background: rgba(2,38,55,.35); border-radius: 10px; }
+.npc-preview-row { display: flex; align-items: center; gap: 18px; padding: 12px; background: rgba(2,38,55,.35); border-radius: 14px; }
+.npc-preview-row > canvas { flex: 0 0 144px; }
+.npc-preview-row strong { color: #ffe77a; }
+.npc-preview-row p { color: #d1edf2; line-height: 1.5; font-size: .85rem; }
+.npc-outfit-gallery { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.npc-outfit-card { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; padding: 8px 5px; color: #dff6f8; background: #06435a; border: 2px solid transparent; border-radius: 12px; box-shadow: none; }
+.npc-outfit-card[aria-pressed="true"] { color: #fff3ad; background: #126b7d; border-color: #8df0a4; }
+.npc-outfit-card span { min-height: 2.6em; font-size: .7rem; line-height: 1.3; overflow-wrap: anywhere; }
+.npc-outfit-card:focus-visible { outline: 3px solid #ffe77a; outline-offset: 2px; }
+@media (max-width: 480px) { .npc-outfit-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); } .npc-preview-row { flex-wrap: wrap; justify-content: center; } }
+@media (max-width: 480px) { .admin-panel { padding: 18px; } .admin-panel h2 { font-size: 1.5rem; } .npc-item-row { grid-template-columns: minmax(0, 1fr) 80px; } .npc-item-row button { grid-column: 1 / -1; } }
 .feature-panel h2 { margin: 0; font-size: 2rem; }
 .feature-panel > p:not(.eyebrow) { color: #d1edf2; }
 .panel-form { display: grid; gap: 13px; }

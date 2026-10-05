@@ -1,5 +1,6 @@
 @echo off
 setlocal
+cd /d "%~dp0"
 set "PORT=4173"
 
 where py >nul 2>&1
@@ -21,4 +22,4 @@ exit /b 1
 :open_game
 rem Start-Sleep works when this launcher is run from an editor or a redirected shell.
 powershell -NoProfile -Command "Start-Sleep -Milliseconds 750" >nul 2>&1
-start "" "http://127.0.0.1:%PORT%/?v=20260830"
+start "" "http://127.0.0.1:%PORT%/?v=20261005wardrobe1"

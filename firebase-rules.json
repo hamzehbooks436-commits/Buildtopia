@@ -27,7 +27,21 @@
     "worlds": {
       "$world": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        "state": { ".write": "auth != null" },
+        "meta": { ".write": "auth != null" },
+        "presence": {
+          "$uid": { ".write": "auth != null && auth.uid == $uid" }
+        },
+        "npcs": {
+          ".write": "auth != null && auth.uid == 'qSv2Mg9XCEQmr1ymQe6BQ4cZi9Z2'",
+          "$npc": {
+            ".validate": "newData.hasChildren(['name', 'x', 'y', 'enabled'])",
+            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+            "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 128 && newData.val() % 1 == 0" },
+            "y": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 72 && newData.val() % 1 == 0" },
+            "enabled": { ".validate": "newData.isBoolean()" }
+          }
+        }
       }
     }
   }

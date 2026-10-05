@@ -3,9 +3,12 @@ import { ITEM_DEFS } from "./definitions.js";
 
 export function createInventory(saved = null, size = INVENTORY_SIZE) {
   const slots = Array.from({ length: size }, () => null);
-  if (Array.isArray(saved)) {
-    saved.slice(0, size).forEach((slot, index) => {
-      if (slot && ITEM_DEFS[slot.itemId] && Number.isFinite(slot.count) && slot.count > 0) slots[index] = { itemId: slot.itemId, count: Math.floor(slot.count) };
+  if (saved && typeof saved === "object") {
+    // Realtime Database returns sparse numeric arrays as keyed objects.
+    Object.entries(saved).forEach(([key, slot]) => {
+      const index = Number(key);
+      if (!Number.isInteger(index) || index < 0 || index >= size) return;
+      if (slot && ITEM_DEFS[slot.itemId] && Number.isSafeInteger(slot.count) && slot.count > 0) slots[index] = { itemId: slot.itemId, count: slot.count };
     });
     return slots;
   }

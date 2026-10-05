@@ -2,12 +2,53 @@ import { loadAssets } from "./assets.js";
 import { HOTBAR_SIZE, INVENTORY_SIZE, MAX_INVENTORY_SIZE, PHYSICS, REACH, TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 import { ITEM_DEFS, SEED_RECIPES, TILE_DEFS, spliceResult } from "./definitions.js";
 import { addItem, countItem, createInventory, removeItem } from "./inventory.js";
-import { createPlayer, playerOverlapsTile, updatePlayer } from "./player.js";
-import { drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, shopOfferAt } from "./ui.js";
+import { createPlayer, playerOverlapsTile, playerTouchesTile, respawnPlayer, updatePlayer } from "./player.js";
+import { drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, drawWinterSnow, drawWinterActivities, shopActionAt } from "./ui.js";
 import { World, generateWorld } from "./world.js";
+import { buildIgloo, canPlaceIgloo, iglooTiles } from "./igloo.js";
+import { createSnowball, WinterActivities } from "./winter-activities.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { get, onDisconnect, onValue, push, ref, remove, runTransaction, set, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { auth, database, firebaseConfigured } from "./firebase.js";
+import { isAdminAccount } from "./admin.js";
+import { createAdminTools } from "./admin-ui.js";
+import { drawNpcs, npcAtPoint } from "./npcs.js";
+
+let adminTools = null, inventoryBusy = false, inventoryMeta = {}, inventoryWriteQueue = Promise.resolve();
+
+function resetGameInput() {
+  input.left = input.right = input.jumpHeld = input.jumpPressed = input.pointerDown = false;
+  input.touchMineTarget = null; stopBreaking();
+}
+function initializeAdminTools() {
+  adminTools = createAdminTools({ user, localMode, database, worldKey, assets,
+    getWorld: () => world, getPlayer: () => player,
+    getInventorySave: () => ({ ...inventoryMeta, slots: inventory, size: inventorySize, selectedSlot }),
+    changeInventory: changeSpecialInventory, notify, resetInput: resetGameInput,
+    focusCanvas: () => canvas.focus(),
+    closeOverlays: () => { setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); closeDoorSettings(); },
+  });
+}
+async function changeSpecialInventory(transform) {
+  if (inventoryBusy) throw new Error("Wait for your previous inventory change to finish.");
+  inventoryBusy = true; resetGameInput();
+  try {
+    await inventoryWriteQueue;
+    const currentSave = { ...inventoryMeta, slots: inventory, size: inventorySize, selectedSlot, updatedAt: Date.now() };
+    // Flush local mining/placement before starting the atomic NPC/admin change.
+    await set(inventoryRef, currentSave);
+    let reason = "Inventory update was not completed.";
+    const result = await runTransaction(inventoryRef, current => {
+      try { const saved = current ?? currentSave; return transform({ ...saved, slots: createInventory(saved.slots ?? [], saved.size ?? INVENTORY_SIZE) }); }
+      catch (error) { reason = error.message; return; }
+    }, { applyLocally: false });
+    if (!result.committed) throw new Error(reason);
+    const saved = result.snapshot.val();
+    inventorySize = saved.size; inventory = createInventory(saved.slots, inventorySize);
+    inventoryMeta = { npcClaims: saved.npcClaims ?? {}, lastNpcRequest: saved.lastNpcRequest ?? null };
+  } catch (error) { throw new Error(error.message || "Could not save. Check your connection."); }
+  finally { inventoryBusy = false; }
+}
 
 const canvas = document.querySelector("#game");
 const context = canvas.getContext("2d");
@@ -43,7 +84,7 @@ const worldKey = params.get("world");
 const requestedName = params.get("name") || worldKey;
 const localMode = localStorage.getItem("buildtopiaLocalMode") === "true";
 let assets, world, inventory, inventorySize = INVENTORY_SIZE, player, user, username = "Explorer", worldStateRef, playerStateRef, presenceRef, gamePresenceRef, metaRef, inventoryRef, worldLockedBy = null;
-let running = false, lastFrame = 0, lastPlayerSave = 0, lastPlantCheck = 0, selectedSlot = 0, hotbarLayout = null, shopOpen = false, shopLayout = null, inventoryOpen = false, invLayout = null, recipesOpen = false, pendingWorldChange = false, remotePlayers = {};
+let running = false, lastFrame = 0, lastPlayerSave = 0, lastPlantCheck = 0, selectedSlot = 0, hotbarLayout = null, shopOpen = false, shopSection = null, shopLayout = null, inventoryOpen = false, invLayout = null, recipesOpen = false, pendingWorldChange = false, remotePlayers = {};
 const drag = { from: -1 };
 const camera = { x: 0, y: 0 };
 const ZOOM_MIN = .6, ZOOM_MAX = 2.5;
@@ -53,6 +94,81 @@ const input = { left: false, right: false, jumpPressed: false, jumpHeld: false, 
 const breaking = { active: false, x: -1, y: -1, startedAt: 0, progress: 0 };
 const toast = { message: "", timeLeft: 0 };
 const lava = { hits: 0, lastHitAt: 0, inside: false };
+const winterActivities = new WinterActivities();
+let latestSnowball = null, lastSnowballAt = 0, snowballTags = 0;
+
+function throwSelectedSnowball(aimAtPointer = true) {
+  if (!running || shopOpen || inventoryOpen || recipesOpen || !doorSettings.hidden || !tradePanel.hidden || inventory[selectedSlot]?.itemId !== "snowball") return;
+  const now = Date.now();
+  if (now - lastSnowballAt < 550 || !removeItem(inventory, "snowball", 1)) return;
+  lastSnowballAt = now;
+  const target = aimAtPointer ? { x: input.pointer.x / zoom + camera.x, y: input.pointer.y / zoom + camera.y } : null;
+  latestSnowball = createSnowball(player, user.uid, `${user.uid}:${now}`, now, target);
+  winterActivities.addSnowball(latestSnowball, now);
+  stopBreaking();
+  savePlayerState();
+  updatePresence();
+}
+
+async function placeIgloo(target) {
+  const floorY = target.y + 1;
+  if (!canPlaceIgloo(world, target.x, floorY) || iglooTiles(target.x, floorY).some(tile => playerOverlapsTile(player, tile.x, tile.y))) {
+    notify("Igloo needs a clear 9-tile-wide area and 5 tiles of headroom. Keep clear of its walls.");
+    return;
+  }
+  if (!removeItem(inventory, "igloo_kit", 1)) return;
+  stopBreaking();
+  const committed = await mutateWorld(next => {
+    if (!canPlaceIgloo(next, target.x, floorY)) return false;
+    buildIgloo(next, target.x, floorY);
+  });
+  if (!committed) { addItem(inventory, "igloo_kit", 1); notify("Could not build the igloo. Your kit was returned."); }
+  else notify("Igloo built! Enter through the doorway on the right.");
+  savePlayerState();
+}
+
+function updateWinterActivities(delta) {
+  const now = Date.now();
+  winterActivities.updatePenguins(world, delta);
+  for (const [uid, remote] of Object.entries(remotePlayers)) {
+    if (uid !== user.uid && isFresh(remote) && remote.snowball?.owner === uid) winterActivities.addSnowball(remote.snowball, now);
+  }
+  const targets = [{ ...player, uid: user.uid }, ...Object.entries(remotePlayers).filter(([uid, remote]) => uid !== user.uid && isFresh(remote)).map(([uid, remote]) => ({ ...remote, uid, width: 22, height: TILE_SIZE }))];
+  winterActivities.updateSnowballs(world, targets, now, (victim, shot) => {
+    if (victim.uid === user.uid) notify(`Snowball tag #${++snowballTags}! ${remotePlayers[shot.owner]?.username ?? "An explorer"} got you!`);
+  });
+  if (!pendingWorldChange) for (const candidate of winterActivities.nearbyIcicles(world, player)) {
+    winterActivities.icicleRequests.add(candidate.key);
+    mutateWorld(next => {
+      if (next.get(candidate.x, candidate.y) !== 71 || next.blockSettings[candidate.key]?.icicleFallAt) return false;
+      next.blockSettings[candidate.key] = { icicleFallAt: now };
+    }).finally(() => winterActivities.icicleRequests.delete(candidate.key));
+    break;
+  }
+  const finished = winterActivities.updateIcicles(world, player, now, () => {
+    respawnPlayer(player, respawnPoint());
+    lava.hits = 0; lava.inside = false;
+    stopBreaking();
+    notify(`An icicle hit you! Back to your ${playerCheckpoint ? "checkpoint" : "world spawn"}.`);
+    savePlayerState();
+  });
+  if (finished.length && !pendingWorldChange) mutateWorld(next => {
+    for (const tile of finished) if (next.get(tile.x, tile.y) === 71 && next.blockSettings[tile.key]?.icicleFallAt) {
+      next.set(tile.x, tile.y, 0); delete next.blockSettings[tile.key];
+    }
+  });
+}
+// Visual spring state is local and transient; world saves contain only tiles.
+const bounceAnimations = new Map();
+function animateBouncePad(x, y) { bounceAnimations.set(`${x},${y}`, performance.now()); }
+function bouncePadAge(x, y) {
+  const key = `${x},${y}`;
+  const startedAt = bounceAnimations.get(key);
+  if (startedAt === undefined) return -1;
+  const age = (performance.now() - startedAt) / 1000;
+  if (age >= .6) { bounceAnimations.delete(key); return -1; }
+  return age;
+}
 let playerCheckpoint = null, lastDoorKey = "", doorSettingsTarget = null, activeTrade = null, activeTradeRef = null, tradeSubscription = null;
 
 function fail(message) { loadingTitle.textContent = "Could not enter world"; loadingMessage.textContent = message; loadingCard.classList.remove("is-hidden"); }
@@ -63,9 +179,9 @@ const ONLINE_WINDOW = 30000;
 function isFresh(entry) { return Boolean(entry) && Date.now() - (entry.updatedAt || 0) < ONLINE_WINDOW; }
 function onlineCount() { let total = 1; Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user?.uid && isFresh(remote)) total += 1; }); return total; }
 function setRecipesOpen(open) { recipesOpen = open; recipesPanel.hidden = !open; recipesButton.setAttribute("aria-expanded", String(open)); if (open) { setShopOpen(false); setInventoryOpen(false); } stopBreaking(); }
-function setShopOpen(open) { shopOpen = open; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; if (open && recipesOpen) setRecipesOpen(false); stopBreaking(); }
+function setShopOpen(open) { shopOpen = open; shopSection = null; shopLayout = null; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; if (open && recipesOpen) setRecipesOpen(false); stopBreaking(); }
 function setInventoryOpen(open) { inventoryOpen = open; bagButton.setAttribute("aria-expanded", String(open)); if (open && recipesOpen) setRecipesOpen(false); if (open) stopBreaking(); }
-function canBuild() { return !worldLockedBy || worldLockedBy === user?.uid; }
+function canBuild() { return isAdminAccount(user, localMode) || !worldLockedBy || worldLockedBy === user?.uid; }
 function respawnPoint() { if (playerCheckpoint) return { x: playerCheckpoint.x, y: playerCheckpoint.y }; const doorIndex = world.foreground.indexOf(6); if (doorIndex >= 0) return { x: (doorIndex % world.width) * TILE_SIZE + 5, y: Math.max(0, Math.floor(doorIndex / world.width) - 2) * TILE_SIZE }; const surface = world.surface[18] || 39; return { x: 18 * TILE_SIZE, y: (surface - 3) * TILE_SIZE }; }
 async function leaveToWorldGate() { await savePlayerState(); if (presenceRef) await remove(presenceRef).catch(() => {}); if (gamePresenceRef) await remove(gamePresenceRef).catch(() => {}); window.location.assign("hub.html"); }
 function pointerPosition(event) { const bounds = canvas.getBoundingClientRect(); input.pointer.x = (event.clientX - bounds.left) * (canvas.width / bounds.width); input.pointer.y = (event.clientY - bounds.top) * (canvas.height / bounds.height); }
@@ -75,11 +191,44 @@ function dropsFor(definition) { return (definition.harvest?.drops ?? definition.
 function collectDrops(drops) { const collected = []; let inventoryFull = false; drops.forEach((drop) => { if (addItem(inventory, drop.item, drop.amount)) collected.push(drop); else inventoryFull = true; }); return { collected, inventoryFull }; }
 function formatDrops(drops) { return drops.map((drop) => `${drop.amount}x ${ITEM_DEFS[drop.item].name}`).join(", "); }
 async function mutateWorld(mutator) { if (pendingWorldChange) return false; pendingWorldChange = true; try { if (typeof localMode !== "undefined" && localMode) { if (mutator(world) === false) return false; world.settleFlowers(); localStorage.setItem(`buildtopiaWorld:${worldKey}`, JSON.stringify(world.serialize())); return true; } const result = await runTransaction(worldStateRef, (current) => { if (current) { const saved = World.fromSave(current); if (!saved) return; if (mutator(saved) === false) return; saved.settleFlowers(); return saved.serialize(); } const next = generateWorld(typeof worldKey === "undefined" ? "" : worldKey); if (mutator(next) === false) return; next.settleFlowers(); return next.serialize(); }); const updatedWorld = World.fromSave(result.snapshot.val()); if (updatedWorld) world = updatedWorld; return result.committed; } catch { notify("World update failed. Check your connection."); return false; } finally { pendingWorldChange = false; } }
-async function savePlayerState() { if (!player || !inventory) return; const playerSave = { player: { x: player.x, y: player.y }, checkpoint: playerCheckpoint, worldName: requestedName, updatedAt: Date.now() }; const inventorySave = { slots: inventory, size: inventorySize, selectedSlot, updatedAt: Date.now() }; if (localMode) { localStorage.setItem("buildtopiaLocalInventory", JSON.stringify(inventorySave)); localStorage.setItem(`buildtopiaPlayer:${worldKey}`, JSON.stringify(playerSave)); return; } if (inventoryRef) await set(inventoryRef, inventorySave).catch(() => {}); if (playerStateRef) await set(playerStateRef, playerSave).catch(() => {}); }
-async function updatePresence() { if (presenceRef && player) await set(presenceRef, { username, x: Math.round(player.x), y: Math.round(player.y), facing: player.facing, updatedAt: Date.now() }).catch(() => {}); if (gamePresenceRef) await set(gamePresenceRef, { world: worldKey, worldName: requestedName, name: username, updatedAt: Date.now() }).catch(() => {}); }
-async function completeBreak(target) { const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) return; const committed = await mutateWorld((next) => { if (next.get(target.x, target.y) !== target.tileId) return false; next.set(target.x, target.y, 0); next.removePlant(target.x, target.y); delete next.blockSettings?.[`${target.x},${target.y}`]; next.naturalFlowers = (next.naturalFlowers ?? []).filter((flower) => flower.x !== target.x || flower.y !== target.y); }); if (!committed) return; if (target.tileId === 7 && worldLockedBy === user?.uid && !world.foreground.includes(7)) { if (metaRef) await runTransaction(metaRef, (current) => { if (!current) return current; const next = { ...current }; delete next.lockedBy; return next; }); worldLockedBy = null; notify("World lock removed — anyone can build here again."); } const { collected, inventoryFull } = collectDrops(dropsFor(definition)); const action = definition.harvest ? "Harvested" : "Mined"; notify(collected.length ? `${action} ${definition.name}: ${formatDrops(collected)}${inventoryFull ? " (inventory full)" : ""}` : `${action} ${definition.name}, but your inventory is full.`); await savePlayerState(); }
-function updateBreaking(now, target) { if (!input.pointerDown || !target.inBounds || !target.reachable || !target.tileId || shopOpen || pendingWorldChange) { stopBreaking(); return; } if (!canBuild()) { stopBreaking(); return; } const definition = TILE_DEFS[target.tileId]; if (!definition || definition.unbreakable) { stopBreaking(); return; } if (!breaking.active || breaking.x !== target.x || breaking.y !== target.y) Object.assign(breaking, { active: true, x: target.x, y: target.y, startedAt: now, progress: 0 }); breaking.progress = (now - breaking.startedAt) / (definition.breakTime * (countItem(inventory, "pickaxe") > 0 ? .45 : 1)); if (breaking.progress >= 1) { completeBreak(target); stopBreaking(); } }
-async function placeSelected() { if (shopOpen || pendingWorldChange) return; const target = tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (!item.placesTile) { notify("That item cannot be placed."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
+async function savePlayerState() {
+  if (!player || !inventory || inventoryBusy) return;
+  const playerSave = { player: { x: player.x, y: player.y }, checkpoint: playerCheckpoint, worldName: requestedName, updatedAt: Date.now() };
+  const inventorySave = { ...inventoryMeta, slots: inventory.map(slot => slot ? { ...slot } : null), size: inventorySize, selectedSlot, updatedAt: Date.now() };
+  if (localMode) { localStorage.setItem("buildtopiaLocalInventory", JSON.stringify(inventorySave)); localStorage.setItem(`buildtopiaPlayer:${worldKey}`, JSON.stringify(playerSave)); return; }
+  if (inventoryRef) { inventoryWriteQueue = inventoryWriteQueue.catch(() => {}).then(() => set(inventoryRef, inventorySave)); await inventoryWriteQueue.catch(() => {}); }
+  if (playerStateRef) await set(playerStateRef, playerSave).catch(() => {});
+}
+async function updatePresence() { if (presenceRef && player) await set(presenceRef, { username, x: Math.round(player.x), y: Math.round(player.y), facing: player.facing, snowball: latestSnowball, updatedAt: Date.now() }).catch(() => {}); if (gamePresenceRef) await set(gamePresenceRef, { world: worldKey, worldName: requestedName, name: username, updatedAt: Date.now() }).catch(() => {}); }
+async function completeBreak(target) {
+  if (inventoryBusy || adminTools?.isOpen()) return;
+  const definition = TILE_DEFS[target.tileId];
+  if (!definition || (definition.unbreakable && !isAdminAccount(user, localMode))) return;
+  const committed = await mutateWorld(next => {
+    if (next.get(target.x, target.y) !== target.tileId) return false;
+    next.set(target.x, target.y, 0); next.removePlant(target.x, target.y);
+    delete next.blockSettings?.[`${target.x},${target.y}`];
+    next.naturalFlowers = (next.naturalFlowers ?? []).filter(flower => flower.x !== target.x || flower.y !== target.y);
+  });
+  if (!committed) return;
+  if (target.tileId === 7 && worldLockedBy === user?.uid && !world.foreground.includes(7)) {
+    if (metaRef) await runTransaction(metaRef, current => { if (!current) return current; const next = { ...current }; delete next.lockedBy; return next; });
+    worldLockedBy = null; notify("World lock removed — anyone can build here again.");
+  }
+  const { collected, inventoryFull } = collectDrops(dropsFor(definition));
+  const action = definition.harvest ? "Harvested" : "Mined";
+  notify(collected.length ? `${action} ${definition.name}: ${formatDrops(collected)}${inventoryFull ? " (inventory full)" : ""}` : `${action} ${definition.name}${definition.unbreakable ? "." : ", but your inventory is full."}`);
+  await savePlayerState();
+}
+function updateBreaking(now, target) { if (!input.pointerDown || !target.inBounds || !target.reachable || !target.tileId || shopOpen || pendingWorldChange || inventoryBusy || adminTools?.isOpen()) { stopBreaking(); return; } if (!canBuild()) { stopBreaking(); return; } const definition = TILE_DEFS[target.tileId]; if (!definition || (definition.unbreakable && !isAdminAccount(user, localMode))) { stopBreaking(); return; } if (!breaking.active || breaking.x !== target.x || breaking.y !== target.y) Object.assign(breaking, { active: true, x: target.x, y: target.y, startedAt: now, progress: 0 }); breaking.progress = (now - breaking.startedAt) / ((definition.breakTime ?? 500) * (countItem(inventory, "pickaxe") > 0 ? .45 : 1)); if (breaking.progress >= 1) { completeBreak(target); stopBreaking(); } }
+async function placeSelected() { if (shopOpen || pendingWorldChange || inventoryBusy || adminTools?.isOpen()) return; const target = tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (item.throwable) { throwSelectedSnowball(); return; } if (item.buildsIgloo) { if (!canBuild()) { notify("Only the world owner can build here."); return; } await placeIgloo(target); return; } if (!item.placesTile) { notify("That item cannot be placed."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
+  if (item.backgroundOnly) {
+    if (world.getBackground(target.x, target.y)) { notify("That background tile is occupied."); return; }
+    const id = slot.itemId; if (!removeItem(inventory, id, 1)) return;
+    const committed = await mutateWorld(next => { if (next.getBackground(target.x, target.y)) return false; next.setBackground(target.x, target.y, item.placesTile); });
+    if (!committed) addItem(inventory, id, 1); else notify(`Placed ${item.name}.`); savePlayerState(); return;
+  }
+  if (item.placesTile === 71 && !world.isSolid(target.x, target.y - 1)) { notify("Icicles must hang below a solid ceiling."); return; }
   const craftedSeed = spliceResult(target.tileId, item.placesTile);
   if (target.tileId && !craftedSeed) { notify("That space is occupied. These items cannot be spliced."); return; }
   if (!craftedSeed && playerOverlapsTile(player, target.x, target.y)) { notify("Give yourself a little room."); return; }
@@ -111,6 +260,16 @@ async function placeSelected() { if (shopOpen || pendingWorldChange) return; con
 function updateCamera(delta) { const viewWidth = canvas.width / zoom, viewHeight = canvas.height / zoom, desiredX = player.x + player.width / 2 - viewWidth / 2, desiredY = player.y + player.height / 2 - viewHeight / 2, maxX = Math.max(0, WORLD_WIDTH * TILE_SIZE - viewWidth), maxY = Math.max(0, WORLD_HEIGHT * TILE_SIZE - viewHeight); camera.x += (Math.max(0, Math.min(maxX, desiredX)) - camera.x) * Math.min(1, delta * 6); camera.y += (Math.max(0, Math.min(maxY, desiredY)) - camera.y) * Math.min(1, delta * 6); }
 function lavaContact() { const left = Math.floor((player.x + 3) / TILE_SIZE), right = Math.floor((player.x + player.width - 3) / TILE_SIZE), top = Math.floor((player.y + 3) / TILE_SIZE), bottom = Math.floor((player.y + player.height - 1) / TILE_SIZE); for (let y = top; y <= bottom; y += 1) for (let x = left; x <= right; x += 1) if (world.get(x, y) === 5) return { x, y }; return null; }
 function checkLava(now) { const contact = lavaContact(); if (!contact) { lava.inside = false; return; } const fresh = !lava.inside; lava.inside = true; if (!fresh && now - lava.lastHitAt < 1000) return; lava.lastHitAt = now; lava.hits += 1; player.vy = -PHYSICS.jumpSpeed * 1.2; player.grounded = false; const lavaBelow = contact.y * TILE_SIZE + TILE_SIZE / 2 > player.y + player.height / 2 + 6; if (!lavaBelow) player.vx = (player.x + player.width / 2 >= contact.x * TILE_SIZE + TILE_SIZE / 2 ? 1 : -1) * PHYSICS.runSpeed * 1.2; if (lava.hits >= 3) { const spawn = respawnPoint(); player.x = spawn.x; player.y = spawn.y; player.vx = 0; player.vy = 0; lava.hits = 0; lava.inside = false; notify(`The lava was too hot — you respawned at your ${playerCheckpoint ? "checkpoint" : "world spawn"}!`); savePlayerState(); } else notify(`Ouch! Lava burns! ${3 - lava.hits} burns left.`); }
+function checkSpikes() {
+  if (!playerTouchesTile(player, world, "hazard")) return false;
+  respawnPlayer(player, respawnPoint());
+  lava.hits = 0;
+  lava.inside = false;
+  stopBreaking();
+  notify(`Spikes! You returned to your ${playerCheckpoint ? "checkpoint" : "world spawn"}.`);
+  savePlayerState();
+  return true;
+}
 function unstickPlayer() { if (!Number.isFinite(player.x) || !Number.isFinite(player.y)) { const spawn = respawnPoint(); player.x = spawn.x; player.y = spawn.y; player.vx = 0; player.vy = 0; return; } const centerX = Math.floor((player.x + player.width / 2) / TILE_SIZE), centerY = Math.floor((player.y + player.height / 2) / TILE_SIZE); if (player.vy >= 0 && world.isSolid(centerX, centerY)) { player.y = centerY * TILE_SIZE - player.height - .01; player.vy = 0; } }
 function playerSpecialTiles() { const tiles = []; const left = Math.floor((player.x + 3) / TILE_SIZE), right = Math.floor((player.x + player.width - 3) / TILE_SIZE), top = Math.floor((player.y + 3) / TILE_SIZE), bottom = Math.floor((player.y + player.height - 3) / TILE_SIZE); for (let y = top; y <= bottom; y += 1) for (let x = left; x <= right; x += 1) tiles.push({ x, y, tileId: world.get(x, y) }); return tiles; }
 async function goToWorld(name) { const cleanName = String(name || "").trim(); if (!/^[A-Za-z0-9_-]{3,28}$/.test(cleanName)) { notify("That door needs a valid destination world."); return; } await savePlayerState(); if (presenceRef) await remove(presenceRef).catch(() => {}); if (gamePresenceRef) await remove(gamePresenceRef).catch(() => {}); const key = cleanName.toLowerCase(); window.location.assign(`world.html?world=${encodeURIComponent(key)}&name=${encodeURIComponent(cleanName)}`); }
@@ -206,6 +365,9 @@ function watchTrades() {
   });
 }
 async function useWrenchAtPointer() {
+  if (inventoryBusy || adminTools?.isOpen()) return;
+  const hitNpc = npcAtPoint(adminTools?.getNpcs() ?? {}, { x: input.pointer.x / zoom + camera.x, y: input.pointer.y / zoom + camera.y });
+  if (hitNpc) { adminTools.interact(hitNpc[0], true); return; }
   const worldX = input.pointer.x / zoom + camera.x, worldY = input.pointer.y / zoom + camera.y;
   for (const [uid, remote] of Object.entries(remotePlayers)) {
     if (uid === user.uid || !isFresh(remote)) continue;
@@ -216,7 +378,22 @@ async function useWrenchAtPointer() {
   notify("Use the Wrench on a World Door or another player.");
   return true;
 }
-function buy(offer) { if (!offer) return; if (countItem(inventory, "gems") < offer.cost) { notify("Not enough Sky Gems."); return; } if (offer.item === "seed_package") {
+function buy(offer) { if (!offer) return; if (countItem(inventory, "gems") < offer.cost) { notify("Not enough Sky Gems."); return; }
+  if (offer.rewards) {
+    const next = inventory.map(slot => slot ? { ...slot } : null);
+    if (!removeItem(next, "gems", offer.cost)) return;
+    for (const reward of offer.rewards) {
+      if (!addItem(next, reward.item, reward.amount)) {
+        notify("Make room for the full Parkour Package. No gems were spent.");
+        return;
+      }
+    }
+    inventory = next;
+    notify(offer.name + ": " + formatDrops(offer.rewards) + ".");
+    savePlayerState();
+    return;
+  }
+  if (offer.item === "seed_package") {
     const pool = Object.keys(ITEM_DEFS).filter(id => id.endsWith("_seed"));
     // Stage the complete purchase so a full bag never charges for a partial pack.
     const next = inventory.map(slot => slot ? { ...slot } : null);
@@ -234,11 +411,22 @@ function buy(offer) { if (!offer) return; if (countItem(inventory, "gems") < off
     savePlayerState();
     return;
   } if (offer.item === "inventory_slots") { if (inventorySize >= MAX_INVENTORY_SIZE) { notify("Your inventory is fully upgraded."); return; } removeItem(inventory, "gems", offer.cost); const before = inventory.length; inventorySize = Math.min(MAX_INVENTORY_SIZE, inventorySize + offer.amount); while (inventory.length < inventorySize) inventory.push(null); notify(`Bought ${inventorySize - before} more inventory slots!`); savePlayerState(); return; } if (offer.item === "pickaxe" && countItem(inventory, "pickaxe") > 0) { notify("You already own a Pickaxe."); return; } removeItem(inventory, "gems", offer.cost); if (!addItem(inventory, offer.item, offer.amount)) { addItem(inventory, "gems", offer.cost); notify("Your inventory is full."); return; } notify(`Bought ${offer.amount}× ${ITEM_DEFS[offer.item].name}.`); savePlayerState(); }
-function moveInventorySlot(from, to) { if (from === to) return; const source = inventory[from], target = inventory[to]; if (!source) return; if (!target) { inventory[to] = source; inventory[from] = null; } else if (target.itemId === source.itemId) { const total = Math.min(999, source.count + target.count); const moved = total - target.count; target.count = total; source.count -= moved; if (source.count <= 0) inventory[from] = null; } else { inventory[to] = source; inventory[from] = target; } savePlayerState(); }
-function drawWorld() { drawSky(context, assets, camera, canvas.width, canvas.height, world.worldType); const viewWidth = canvas.width / zoom, viewHeight = canvas.height / zoom; const startX = Math.max(0, Math.floor(camera.x / TILE_SIZE) - 1), endX = Math.min(WORLD_WIDTH, Math.ceil((camera.x + viewWidth) / TILE_SIZE) + 1), startY = Math.max(0, Math.floor(camera.y / TILE_SIZE) - 1), endY = Math.min(WORLD_HEIGHT, Math.ceil((camera.y + viewHeight) / TILE_SIZE) + 1); context.save(); context.scale(zoom, zoom); for (let y = startY; y < endY; y += 1) for (let x = startX; x < endX; x += 1) drawTile(context, assets, world.get(x, y), x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y); Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user.uid && isFresh(remote)) drawPlayer(context, { x: remote.x, y: remote.y, width: 22, height: TILE_SIZE, facing: remote.facing || 1 }, camera, remote.username, true); }); drawPlayer(context, player, camera, username); const target = tileTarget(); drawCrosshair(context, target, camera, target.reachable); context.restore(); hotbarLayout = drawHotbar(context, assets, inventory, selectedSlot, canvas.width, canvas.height); drawHud(context, assets, { inventory, selectedSlot, toast, target, breaking, worldName: requestedName, online: onlineCount(), lavaHits: lava.hits }, canvas.width); invLayout = inventoryOpen ? drawInventoryPanel(context, assets, inventory, selectedSlot, canvas.width, canvas.height, drag.from >= 0 ? { from: drag.from, pointer: input.pointer } : null) : null; shopLayout = shopOpen ? drawShop(context, assets, inventory, canvas.width, canvas.height) : null; }
-function frame(now) { if (!running) return; const delta = Math.min(.033, (now - lastFrame) / 1000 || 0); lastFrame = now; const modalOpen = !doorSettings.hidden || !tradePanel.hidden || recipesOpen; if (!shopOpen && !modalOpen) { updatePlayer(player, world, input, delta); checkLava(now); unstickPlayer(); checkSpecialTiles(); } input.jumpPressed = false; updateCamera(delta); updateBreaking(now, miningTarget()); toast.timeLeft = Math.max(0, toast.timeLeft - delta); if (now - lastPlayerSave > 250) { lastPlayerSave = now; savePlayerState(); updatePresence(); } if (now - lastPlantCheck > 1500 && !pendingWorldChange) { lastPlantCheck = now; mutateWorld((next) => { next.updatePlants(); next.updateFlowers(); }); } drawWorld(); requestAnimationFrame(frame); }
+function moveInventorySlot(from, to) { if (from === to) return; const source = inventory[from], target = inventory[to]; if (!source) return; if (!target) { inventory[to] = source; inventory[from] = null; } else if (target.itemId === source.itemId) { const total = target.count > 999 || source.count > 999 ? source.count + target.count : Math.min(999, source.count + target.count); const moved = total - target.count; target.count = total; source.count -= moved; if (source.count <= 0) inventory[from] = null; } else { inventory[to] = source; inventory[from] = target; } savePlayerState(); }
+function drawWorld() { drawSky(context, assets, camera, canvas.width, canvas.height, world.worldType); const viewWidth = canvas.width / zoom, viewHeight = canvas.height / zoom; const startX = Math.max(0, Math.floor(camera.x / TILE_SIZE) - 1), endX = Math.min(WORLD_WIDTH, Math.ceil((camera.x + viewWidth) / TILE_SIZE) + 1), startY = Math.max(0, Math.floor(camera.y / TILE_SIZE) - 1), endY = Math.min(WORLD_HEIGHT, Math.ceil((camera.y + viewHeight) / TILE_SIZE) + 1); context.save(); context.scale(zoom, zoom); for (let y = startY; y < endY; y += 1) for (let x = startX; x < endX; x += 1) {
+    if (world.getBackground(x, y)) drawTile(context, assets, world.getBackground(x, y), x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y, TILE_SIZE, true);
+    else if (world.worldType === "ice" && y >= world.surface[x] && !world.isSolid(x, y)) {
+      context.fillStyle = "#102a43";
+      context.fillRect(x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y, TILE_SIZE, TILE_SIZE);
+    }
+  }
+  for (let y = startY; y < endY; y += 1) for (let x = startX; x < endX; x += 1) {
+    if (world.get(x, y) === 71 && world.blockSettings[`${x},${y}`]?.icicleFallAt) continue;
+    drawTile(context, assets, world.get(x, y), x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y, TILE_SIZE, false, bouncePadAge(x, y));
+  }
+  drawWinterActivities(context, assets, winterActivities, camera); drawNpcs(context, adminTools?.getNpcs() ?? {}, camera); Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user.uid && isFresh(remote)) drawPlayer(context, { x: remote.x, y: remote.y, width: 22, height: TILE_SIZE, facing: remote.facing || 1 }, camera, remote.username, true); }); drawPlayer(context, player, camera, username); const target = tileTarget(); drawCrosshair(context, target, camera, target.reachable); context.restore(); if (world.worldType === "ice") drawWinterSnow(context, camera, canvas.width, canvas.height); hotbarLayout = drawHotbar(context, assets, inventory, selectedSlot, canvas.width, canvas.height); drawHud(context, assets, { inventory, selectedSlot, toast, target, breaking, worldName: requestedName, online: onlineCount(), lavaHits: lava.hits }, canvas.width); invLayout = inventoryOpen ? drawInventoryPanel(context, assets, inventory, selectedSlot, canvas.width, canvas.height, drag.from >= 0 ? { from: drag.from, pointer: input.pointer } : null) : null; shopLayout = shopOpen ? drawShop(context, assets, inventory, canvas.width, canvas.height, shopSection, isAdminAccount(user, localMode)) : null; }
+function frame(now) { if (!running) return; const delta = Math.min(.033, (now - lastFrame) / 1000 || 0); lastFrame = now; const modalOpen = !doorSettings.hidden || !tradePanel.hidden || recipesOpen || adminTools?.isOpen() || inventoryBusy; if (!shopOpen && !modalOpen) { updatePlayer(player, world, input, delta, animateBouncePad); if (!checkSpikes()) { checkLava(now); unstickPlayer(); checkSpecialTiles(); updateWinterActivities(delta); } } input.jumpPressed = false; updateCamera(delta); updateBreaking(now, miningTarget()); toast.timeLeft = Math.max(0, toast.timeLeft - delta); if (now - lastPlayerSave > 250) { lastPlayerSave = now; savePlayerState(); updatePresence(); } if (now - lastPlantCheck > 1500 && !pendingWorldChange) { lastPlantCheck = now; mutateWorld((next) => { next.updatePlants(); next.updateFlowers(); }); } drawWorld(); requestAnimationFrame(frame); }
 async function enterWorld() { if (!worldKey || !/^[a-z0-9_-]{3,28}$/.test(worldKey)) { fail("This world name is invalid. Return to the World Gate and enter a valid name."); return; } const profile = (await get(ref(database, `users/${user.uid}/profile`))).val(); username = profile?.username ?? user.displayName ?? user.email?.split("@")[0] ?? "Explorer"; worldStateRef = ref(database, `worlds/${worldKey}/state`); playerStateRef = ref(database, `users/${user.uid}/worlds/${worldKey}`); inventoryRef = ref(database, `users/${user.uid}/inventory`); presenceRef = ref(database, `worlds/${worldKey}/presence/${user.uid}`); gamePresenceRef = ref(database, `gamePresence/${user.uid}`); metaRef = ref(database, `worlds/${worldKey}/meta`); await runTransaction(metaRef, (current) => current ?? { name: requestedName, key: worldKey, ownerId: user.uid, createdAt: Date.now() }); worldLockedBy = ((await get(metaRef)).val() ?? {}).lockedBy ?? null; await runTransaction(worldStateRef, (current) => current ?? generateWorld(worldKey).serialize()); const savedPlayer = (await get(playerStateRef)).val(); world = World.fromSave((await get(worldStateRef)).val()) ?? generateWorld(worldKey); playerCheckpoint = savedPlayer?.checkpoint ?? null; let savedInventory = (await get(inventoryRef)).val(); let sourceSelected = savedInventory?.selectedSlot;
-  if (!Array.isArray(savedInventory?.slots)) {
+  if (!savedInventory) {
     // One-time migration: the account inventory does not exist yet, so merge every
     // old per-world inventory into one, then delete the stale per-world copies.
     const oldWorlds = (await get(ref(database, `users/${user.uid}/worlds`))).val() ?? {};
@@ -254,7 +442,7 @@ async function enterWorld() { if (!worldKey || !/^[a-z0-9_-]{3,28}$/.test(worldK
     Object.keys(oldWorlds).forEach((key) => { cleanup[`${key}/inventory`] = null; cleanup[`${key}/inventorySize`] = null; cleanup[`${key}/selectedSlot`] = null; });
     if (Object.keys(cleanup).length) await update(ref(database, `users/${user.uid}/worlds`), cleanup).catch(() => {});
   }
-  inventorySize = Math.max(INVENTORY_SIZE, Math.min(MAX_INVENTORY_SIZE, Math.floor(savedInventory?.size) || INVENTORY_SIZE)); inventory = createInventory(savedInventory?.slots ?? null, inventorySize); let grantedDoor = false; if (!world.foreground.includes(6) && !inventory.some((slot) => slot?.itemId === "white_door")) { addItem(inventory, "white_door", 1); grantedDoor = true; } if (!inventory.some((slot) => slot?.itemId === "wrench")) addItem(inventory, "wrench", 1); const spawn = respawnPoint(); player = createPlayer(savedPlayer?.player?.x ?? spawn.x, savedPlayer?.player?.y ?? spawn.y); selectedSlot = Math.min(Math.max(0, sourceSelected ?? 0), inventory.length - 1); onValue(worldStateRef, (snapshot) => { const next = World.fromSave(snapshot.val()); if (next) world = next; }); onValue(ref(database, `worlds/${worldKey}/presence`), (snapshot) => { remotePlayers = snapshot.val() ?? {}; }); await onDisconnect(presenceRef).remove(); await onDisconnect(gamePresenceRef).remove(); await updatePresence(); await update(ref(database, `users/${user.uid}`), { lastWorld: worldKey, lastSeenAt: Date.now() }); watchTrades(); assets = await loadAssets(); resize(); running = true; loadingCard.classList.add("is-hidden"); if (grantedDoor) notify("You received a White Door and Wrench."); else if (worldLockedBy && worldLockedBy !== user.uid) notify("This world is locked — you can look around but not build."); lastFrame = performance.now(); requestAnimationFrame(frame); }
+  inventoryMeta = { npcClaims: savedInventory?.npcClaims ?? {}, lastNpcRequest: savedInventory?.lastNpcRequest ?? null }; inventorySize = Math.max(INVENTORY_SIZE, isAdminAccount(user, localMode) ? Math.max(Math.floor(savedInventory?.size) || INVENTORY_SIZE, savedInventory?.slots?.length ?? 0) : Math.min(MAX_INVENTORY_SIZE, Math.floor(savedInventory?.size) || INVENTORY_SIZE)); inventory = createInventory(savedInventory?.slots ?? null, inventorySize); let grantedDoor = false; if (!world.foreground.includes(6) && !inventory.some((slot) => slot?.itemId === "white_door")) { addItem(inventory, "white_door", 1); grantedDoor = true; } if (!inventory.some((slot) => slot?.itemId === "wrench")) addItem(inventory, "wrench", 1); const spawn = respawnPoint(); player = createPlayer(savedPlayer?.player?.x ?? spawn.x, savedPlayer?.player?.y ?? spawn.y); selectedSlot = Math.min(Math.max(0, sourceSelected ?? 0), inventory.length - 1); onValue(worldStateRef, (snapshot) => { const next = World.fromSave(snapshot.val()); if (next) world = next; }); onValue(ref(database, `worlds/${worldKey}/presence`), (snapshot) => { remotePlayers = snapshot.val() ?? {}; }); await onDisconnect(presenceRef).remove(); await onDisconnect(gamePresenceRef).remove(); await updatePresence(); await update(ref(database, `users/${user.uid}`), { lastWorld: worldKey, lastSeenAt: Date.now() }); watchTrades(); assets = await loadAssets(); initializeAdminTools(); resize(); running = true; loadingCard.classList.add("is-hidden"); if (grantedDoor) notify("You received a White Door and Wrench."); else if (worldLockedBy && worldLockedBy !== user.uid) notify("This world is locked — you can look around but not build."); if (/^(ice|snow)/i.test(worldKey) && world.worldType !== "ice") notify("This saved world keeps its original terrain. Use a new ice/snow name for a winter world."); lastFrame = performance.now(); requestAnimationFrame(frame); }
 
 async function enterLocalWorld() {
   if (!worldKey || !/^[a-z0-9_-]{3,28}$/.test(worldKey)) { fail("This world name is invalid."); return; }
@@ -265,7 +453,7 @@ async function enterLocalWorld() {
   const savedPlayer = JSON.parse(localStorage.getItem(`buildtopiaPlayer:${worldKey}`) || "null");
   const savedInventory = JSON.parse(localStorage.getItem("buildtopiaLocalInventory") || "null");
   playerCheckpoint = savedPlayer?.checkpoint ?? null;
-  inventorySize = Math.max(INVENTORY_SIZE, Math.min(MAX_INVENTORY_SIZE, Math.floor(savedInventory?.size) || INVENTORY_SIZE));
+  inventoryMeta = { npcClaims: savedInventory?.npcClaims ?? {}, lastNpcRequest: savedInventory?.lastNpcRequest ?? null }; inventorySize = Math.max(INVENTORY_SIZE, isAdminAccount(user, localMode) ? Math.max(Math.floor(savedInventory?.size) || INVENTORY_SIZE, savedInventory?.slots?.length ?? 0) : Math.min(MAX_INVENTORY_SIZE, Math.floor(savedInventory?.size) || INVENTORY_SIZE));
   inventory = createInventory(savedInventory?.slots ?? null, inventorySize);
   if (!inventory.some((slot) => slot?.itemId === "wrench")) addItem(inventory, "wrench", 1);
   if (!world.foreground.includes(6) && !inventory.some((slot) => slot?.itemId === "white_door")) addItem(inventory, "white_door", 1);
@@ -276,14 +464,16 @@ async function enterLocalWorld() {
   localWorlds[worldKey] = { worldName: requestedName, updatedAt: Date.now() };
   localStorage.setItem("buildtopiaLocalWorlds", JSON.stringify(localWorlds));
   localStorage.setItem(`buildtopiaWorld:${worldKey}`, JSON.stringify(world.serialize()));
-  assets = await loadAssets(); resize(); running = true; loadingCard.classList.add("is-hidden"); notify("Local mode: progress is saved on this device."); lastFrame = performance.now(); requestAnimationFrame(frame);
+  assets = await loadAssets(); initializeAdminTools(); resize(); running = true; loadingCard.classList.add("is-hidden"); notify("Local mode: progress is saved on this device."); if (/^(ice|snow)/i.test(worldKey) && world.worldType !== "ice") notify("This saved world keeps its original terrain. Use a new ice/snow name for a winter world."); lastFrame = performance.now(); requestAnimationFrame(frame);
 }
 
 window.addEventListener("resize", resize); window.addEventListener("beforeunload", () => { savePlayerState(); });
-window.addEventListener("keydown", (event) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) placeSelected(); if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); closeDoorSettings(); } });
+window.addEventListener("keydown", (event) => { if (event.target.closest?.("input, textarea, select") || adminTools?.isOpen()) { if (event.key === "Escape") adminTools?.close(); return; } if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) { if (inventory[selectedSlot]?.itemId === "snowball") throwSelectedSnowball(false); else placeSelected(); } if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { if (shopOpen && shopSection) { shopSection = null; shopLayout = null; } else setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); closeDoorSettings(); adminTools?.cancelPlacement(); } });
 window.addEventListener("keyup", (event) => { if (["w", "W", "ArrowUp", " "].includes(event.key)) input.jumpHeld = false; if (event.key === "a" || event.key === "ArrowLeft") input.left = false; if (event.key === "d" || event.key === "ArrowRight") input.right = false; });
 window.addEventListener("pointerup", (event) => { if (drag.from < 0) return; pointerPosition(event); const hit = inventoryOpen && invLayout ? invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size) : null; if (hit && hit.index !== drag.from) moveInventorySlot(drag.from, hit.index); drag.from = -1; });
-canvas.addEventListener("pointermove", pointerPosition); canvas.addEventListener("pointerdown", (event) => { event.preventDefault(); pointerPosition(event); canvas.focus(); if (!running || recipesOpen || !doorSettings.hidden || !tradePanel.hidden) return; if (shopOpen) { buy(shopOfferAt(input.pointer, shopLayout)); return; } if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } const hotbarHit = hotbarLayout?.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hotbarHit) { selectedSlot = hotbarHit.index; notify(inventory[selectedSlot] ? `Selected ${ITEM_DEFS[inventory[selectedSlot].itemId].name}.` : "Selected empty slot."); savePlayerState(); return; } if (inventory[selectedSlot]?.itemId === "wrench") { useWrenchAtPointer(); return; } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } if (event.pointerType === "touch") { const selectedItem = ITEM_DEFS[inventory[selectedSlot]?.itemId]; const canSplice = selectedItem?.placesTile && spliceResult(target.tileId, selectedItem.placesTile); if (!target.tileId || canSplice) { placeSelected(); return; } input.touchMineTarget = { x: target.x, y: target.y }; } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); if (inventory[selectedSlot]?.itemId === "wrench") useWrenchAtPointer(); else placeSelected(); });
+canvas.addEventListener("pointermove", pointerPosition); canvas.addEventListener("pointerdown", (event) => { event.preventDefault(); pointerPosition(event); canvas.focus(); if (!running || recipesOpen || !doorSettings.hidden || !tradePanel.hidden || adminTools?.isOpen() || inventoryBusy) return; if (shopOpen) { const action = shopActionAt(input.pointer, shopLayout); if (action?.kind === "buy") buy(action.offer); else if (action?.kind === "section") { if (action.sectionId === "admin") adminTools?.openMarket(); else { shopSection = action.sectionId; shopLayout = null; } } else if (action?.kind === "back") { shopSection = null; shopLayout = null; } else if (action?.kind === "close") setShopOpen(false); return; } if (adminTools?.handlePlacement(tileTarget())) return;
+  if (!shopOpen && !inventoryOpen) { const hitNpc = npcAtPoint(adminTools?.getNpcs() ?? {}, { x: input.pointer.x / zoom + camera.x, y: input.pointer.y / zoom + camera.y }); if (hitNpc) { adminTools.interact(hitNpc[0], inventory[selectedSlot]?.itemId === "wrench"); return; } }
+  if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } const hotbarHit = hotbarLayout?.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hotbarHit) { selectedSlot = hotbarHit.index; notify(inventory[selectedSlot] ? `Selected ${ITEM_DEFS[inventory[selectedSlot].itemId].name}.` : "Selected empty slot."); savePlayerState(); return; } if (inventory[selectedSlot]?.itemId === "snowball") { throwSelectedSnowball(); return; } if (inventory[selectedSlot]?.itemId === "igloo_kit") { placeSelected(); return; } if (inventory[selectedSlot]?.itemId === "wrench") { useWrenchAtPointer(); return; } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } if (event.pointerType === "touch") { const selectedItem = ITEM_DEFS[inventory[selectedSlot]?.itemId]; const canSplice = selectedItem?.placesTile && spliceResult(target.tileId, selectedItem.placesTile); if (!target.tileId || canSplice) { placeSelected(); return; } input.touchMineTarget = { x: target.x, y: target.y }; } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); if (inventory[selectedSlot]?.itemId === "wrench") useWrenchAtPointer(); else if (!adminTools?.isOpen() && !adminTools?.handlePlacement(tileTarget())) placeSelected(); });
 canvas.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(zoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
 shopButton.addEventListener("click", () => setShopOpen(!shopOpen)); bagButton.addEventListener("click", () => setInventoryOpen(!inventoryOpen)); recipesButton.addEventListener("click", () => setRecipesOpen(!recipesOpen)); recipesClose.addEventListener("click", () => setRecipesOpen(false)); leaveButton.addEventListener("click", leaveToWorldGate);
 doorSettingsClose.addEventListener("click", closeDoorSettings);

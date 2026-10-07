@@ -123,10 +123,10 @@ Block recipes use the same exact-tile method: Sand + Rock makes Glass, and Wood 
 Incompatible pairs do not consume seeds. Splicing uses the same reach and world-lock restrictions as planting.
 
 
-## Furniture and easier building
+## Furniture and building materials
 
 Sky Market → Furniture & Home sells ten collectible, walk-through furnishings: Wooden Chair, Dining Table, Cozy Bed, Soft Sofa, Bookshelf, Wooden Cabinet, Floor Lamp, Woven Rug, Potted Plant and Stone Fireplace. Lamps and fireplaces light nearby tiles. Mine furniture to collect it and move it; it persists in existing and new worlds.
 
-Toggle **Build: On** or press **B**, select a block or furniture in Inventory, then click/touch and drag to place a continuous stroke. A snapped green/red preview shows whether a tile is available. Build mode reaches 6.5 tiles and never mines or replaces existing blocks. Toggle it off to mine. Placing consumes one item per tile; failed requests return the item. Locked worlds and the protected family home still restrict building.
+Furniture is placed exactly like any other block: select it in Inventory or the hotbar, then right-click or press **E** on desktop, or tap an empty tile on touch devices. Normal reach, inventory consumption, occupied-space checks, world locks and family-house protection apply. Hold click/press to mine furniture and collect it again.
 
 Building Blocks now sells wood, brick, glass, background walls and ladders in bulk, plus a 150-gem Builder Pack containing 50 Wood Blocks, 50 Brick Blocks, 20 Glass Blocks, 50 Wood Background walls and 10 Ladders. Market categories have Prev/Next pages to keep cards readable on phones.

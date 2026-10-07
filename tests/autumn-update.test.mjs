@@ -1,4 +1,3 @@
-import { placementCheck } from "../building.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -73,7 +72,7 @@ test('pumpkin drops have a true 50 percent boundary and never duplicate crops', 
 });
 
 test('pumpkin and torch splice in either order with retry-safe placement and refunds', async () => {
-  const placement = source.slice(source.indexOf('async function placeSelected('), source.indexOf('function updateCamera'));
+  const placement = source.slice(source.indexOf('async function placeSelected()'), source.indexOf('function updateCamera'));
   const mutation = source.slice(source.indexOf('async function mutateWorld('), source.indexOf('async function savePlayerState('));
   assert.equal(spliceResult(82, 79), 'jack_o_lantern_seed');
   for (const [first, second] of [['pumpkin_seed', 'torch_seed'], ['torch_seed', 'pumpkin_seed']]) {
@@ -81,8 +80,8 @@ test('pumpkin and torch splice in either order with retry-safe placement and ref
       const world = new World(); world.plant(5, 5, ITEM_DEFS[first].placesTile);
       let saved = world.serialize();
       const state = { world, inventory: [{ itemId: second, count: 2 }], selectedSlot: 0, shopOpen: false,
-        pendingWorldChange: false, inventoryBusy: false, adminTools: null, player: { x: 5 * 32, y: 5 * 32, width: 22, height: 32 }, worldStateRef: {},
-        buildMode: false, placementCheck, ITEM_DEFS, TILE_DEFS, spliceResult, World, addItem, removeItem,
+        pendingWorldChange: false, inventoryBusy: false, adminTools: null, player: {}, worldStateRef: {},
+        ITEM_DEFS, TILE_DEFS, spliceResult, World, addItem, removeItem,
         tileTarget: () => ({ x: 5, y: 5, inBounds: true, reachable: true, tileId: world.get(5, 5) }),
         canBuild: () => true, playerOverlapsTile: () => false, notify() {}, stopBreaking() {}, savePlayerState() {},
         runTransaction: async (_, callback) => {

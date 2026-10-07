@@ -339,20 +339,6 @@ export function drawPlayer(ctx, player, camera, name = "", remote = false) {
   ctx.restore();
 }
 
-export function drawBuildPreview(ctx, assets, world, camera, target, itemId, check, width, height) {
-  const item = ITEM_DEFS[itemId];
-  if (!item?.placesTile) return;
-  const x = target.x * TILE_SIZE - camera.x, y = target.y * TILE_SIZE - camera.y;
-  ctx.save();
-  ctx.strokeStyle = "rgba(180,210,220,.12)"; ctx.lineWidth = 1;
-  for (let gx = -camera.x % TILE_SIZE; gx < width; gx += TILE_SIZE) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,height); ctx.stroke(); }
-  for (let gy = -camera.y % TILE_SIZE; gy < height; gy += TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(width,gy); ctx.stroke(); }
-  ctx.globalAlpha = .6; drawTile(ctx, assets, item.placesTile, x, y); ctx.globalAlpha = 1;
-  ctx.fillStyle = check.ok ? "rgba(90,225,150,.18)" : "rgba(255,100,100,.24)";
-  ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.strokeStyle = check.ok ? "#7cf3ac" : "#ff827d"; ctx.lineWidth = 2; ctx.strokeRect(x+1,y+1,TILE_SIZE-2,TILE_SIZE-2);
-  ctx.restore();
-}
-
 export function drawCrosshair(ctx, target, camera, reachable) {
   if (!target.inBounds) return;
   const x = target.x * TILE_SIZE - camera.x;

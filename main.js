@@ -1,11 +1,10 @@
 import { applyClothing, wardrobeState } from "./wardrobe.js";
-import { BUILD_REACH, placementCheck, strokeTiles } from "./building.js";
 import { loadAssets } from "./assets.js";
 import { HOTBAR_SIZE, INVENTORY_SIZE, MAX_INVENTORY_SIZE, PHYSICS, REACH, TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 import { ITEM_DEFS, SEED_RECIPES, TILE_DEFS, spliceResult } from "./definitions.js";
 import { addItem, countItem, createInventory, removeItem } from "./inventory.js";
 import { createPlayer, playerOverlapsTile, playerTouchesTile, respawnPlayer, updatePlayer } from "./player.js";
-import { drawBuildPreview, drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, drawWinterSnow, drawWinterActivities, drawWorldLighting, shopActionAt } from "./ui.js";
+import { drawCrosshair, drawHotbar, drawHud, drawInventoryPanel, drawPlayer, drawShop, drawSky, drawTile, drawWinterSnow, drawWinterActivities, drawWorldLighting, shopActionAt } from "./ui.js";
 import { World, generateWorld } from "./world.js";
 import { buildIgloo, canPlaceIgloo, iglooTiles } from "./igloo.js";
 import { createSnowball, WinterActivities } from "./winter-activities.js";
@@ -26,7 +25,7 @@ function inventoryMetadata(saved = {}) {
 
 function resetGameInput() {
   input.left = input.right = input.jumpHeld = input.jumpPressed = input.pointerDown = false;
-  input.touchMineTarget = null; clearBrush(); stopBreaking();
+  input.touchMineTarget = null; stopBreaking();
 }
 function initializeAdminTools() {
   adminTools = createAdminTools({ user, localMode, database, worldKey, assets,
@@ -76,8 +75,6 @@ const loadingMessage = document.querySelector("#loading-message");
 const leaveButton = document.querySelector("#leave-button");
 const shopButton = document.querySelector("#shop-button");
 const bagButton = document.querySelector("#bag-button");
-const buildButton = document.querySelector("#build-button");
-const buildHint = document.querySelector("#build-hint");
 const recipesButton = document.querySelector("#recipes-button");
 const recipesPanel = document.querySelector("#recipes-panel");
 const recipesClose = document.querySelector("#recipes-close");
@@ -107,33 +104,6 @@ let assets, world, inventory, inventorySize = INVENTORY_SIZE, player, user, user
 let shopPage = 0;
 let running = false, lastFrame = 0, lastPlayerSave = 0, lastPresenceUpdate = 0, lastPlantCheck = 0, selectedSlot = 0, hotbarLayout = null, shopOpen = false, shopSection = null, shopLayout = null, inventoryOpen = false, invLayout = null, recipesOpen = false, pendingWorldChange = false, remotePlayers = {};
 const drag = { from: -1 };
-let buildMode = false, painting = false, brushFrom = null, lastBrushAt = 0;
-const buildQueue = [], brushSeen = new Set();
-function clearBrush() { painting = false; brushFrom = null; buildQueue.length = 0; brushSeen.clear(); }
-function setBuildMode(on) {
-  buildMode = on; clearBrush(); resetGameInput();
-  buildButton.setAttribute("aria-pressed", String(on)); buildButton.textContent = on ? "Build: On" : "Build: Off";
-  buildHint.hidden = !on;
-  notify(on ? "Build mode: click/touch and drag to place. B switches back to mining." : "Mining mode: hold a block to mine it.");
-}
-function queueBrush(target) {
-  const itemId = inventory[selectedSlot]?.itemId;
-  for (const tile of strokeTiles(brushFrom ?? target, target)) {
-    const key = `${tile.x},${tile.y}`;
-    if (brushSeen.has(key) || buildQueue.length >= 64) continue;
-    if (!placementCheck(world, player, itemId, tile, canBuild(), true).ok) continue;
-    brushSeen.add(key); buildQueue.push({ ...tile, itemId });
-  }
-  brushFrom = target;
-}
-function updateBuildBrush(now) {
-  if (!buildMode || shopOpen || inventoryOpen || recipesOpen || !doorSettings.hidden || !tradePanel.hidden || adminTools?.isOpen() || inventoryBusy) { clearBrush(); return; }
-  if (painting) queueBrush(tileTarget());
-  if (pendingWorldChange || now - lastBrushAt < 80 || !buildQueue.length) return;
-  const target = buildQueue.shift(); lastBrushAt = now;
-  if (inventory[selectedSlot]?.itemId !== target.itemId || !placementCheck(world, player, target.itemId, target, canBuild(), true).ok) return;
-  placeSelected(target);
-}
 const camera = { x: 0, y: 0 };
 const ZOOM_MIN = .6, ZOOM_MAX = 2.5;
 let zoom = 1;
@@ -269,14 +239,14 @@ function stopBreaking() { Object.assign(breaking, { active: false, progress: 0, 
 const ONLINE_WINDOW = 30000;
 function isFresh(entry) { return Boolean(entry) && Date.now() - (entry.updatedAt || 0) < ONLINE_WINDOW; }
 function onlineCount() { let total = 1; Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user?.uid && isFresh(remote)) total += 1; }); return total; }
-function setRecipesOpen(open) { if (open) clearBrush(); recipesOpen = open; recipesPanel.hidden = !open; recipesButton.setAttribute("aria-expanded", String(open)); if (open) { setShopOpen(false); setInventoryOpen(false); } stopBreaking(); }
-function setShopOpen(open) { if (open) clearBrush(); shopOpen = open; shopPage = 0; shopSection = null; shopLayout = null; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; if (open && recipesOpen) setRecipesOpen(false); if (open) stopBreaking(); }
-function setInventoryOpen(open) { if (open) clearBrush(); inventoryOpen = open; bagButton.setAttribute("aria-expanded", String(open)); if (open && recipesOpen) setRecipesOpen(false); if (open) if (open) stopBreaking(); }
+function setRecipesOpen(open) { recipesOpen = open; recipesPanel.hidden = !open; recipesButton.setAttribute("aria-expanded", String(open)); if (open) { setShopOpen(false); setInventoryOpen(false); } stopBreaking(); }
+function setShopOpen(open) { shopOpen = open; shopPage = 0; shopSection = null; shopLayout = null; shopButton.setAttribute("aria-expanded", String(open)); shopButton.textContent = open ? "Close market" : "Sky Market"; if (open && recipesOpen) setRecipesOpen(false); if (open) stopBreaking(); }
+function setInventoryOpen(open) { inventoryOpen = open; bagButton.setAttribute("aria-expanded", String(open)); if (open && recipesOpen) setRecipesOpen(false); if (open) if (open) stopBreaking(); }
 function canBuild() { return isAdminAccount(user, localMode) || !worldLockedBy || worldLockedBy === user?.uid; }
 function respawnPoint() { if (playerCheckpoint) return { x: playerCheckpoint.x, y: playerCheckpoint.y }; const doorIndex = world.foreground.indexOf(6); if (doorIndex >= 0) return { x: (doorIndex % world.width) * TILE_SIZE + 5, y: Math.max(0, Math.floor(doorIndex / world.width) - 2) * TILE_SIZE }; const surface = world.surface[18] || 39; return { x: 18 * TILE_SIZE, y: (surface - 3) * TILE_SIZE }; }
 async function leaveToWorldGate() { await savePlayerState(); if (presenceRef) await remove(presenceRef).catch(() => {}); if (gamePresenceRef) await remove(gamePresenceRef).catch(() => {}); window.location.assign("hub.html"); }
 function pointerPosition(event) { const bounds = canvas.getBoundingClientRect(); input.pointer.x = (event.clientX - bounds.left) * (canvas.width / bounds.width); input.pointer.y = (event.clientY - bounds.top) * (canvas.height / bounds.height); }
-function tileTarget() { const worldX = input.pointer.x / zoom + camera.x, worldY = input.pointer.y / zoom + camera.y, x = Math.floor(worldX / TILE_SIZE), y = Math.floor(worldY / TILE_SIZE), inBounds = x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT; const reachable = Math.hypot(x * TILE_SIZE + TILE_SIZE / 2 - (player.x + player.width / 2), y * TILE_SIZE + TILE_SIZE / 2 - (player.y + player.height / 2)) <= (buildMode ? BUILD_REACH : REACH); return { x, y, inBounds, reachable, tileId: inBounds ? world.get(x, y) : 0 }; }
+function tileTarget() { const worldX = input.pointer.x / zoom + camera.x, worldY = input.pointer.y / zoom + camera.y, x = Math.floor(worldX / TILE_SIZE), y = Math.floor(worldY / TILE_SIZE), inBounds = x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT; const reachable = Math.hypot(x * TILE_SIZE + TILE_SIZE / 2 - (player.x + player.width / 2), y * TILE_SIZE + TILE_SIZE / 2 - (player.y + player.height / 2)) <= REACH; return { x, y, inBounds, reachable, tileId: inBounds ? world.get(x, y) : 0 }; }
 function miningTarget() {
   const target = input.touchMineTarget ? { ...tileTarget(), ...input.touchMineTarget } : tileTarget();
   target.inBounds = world.inBounds(target.x, target.y);
@@ -325,9 +295,7 @@ async function completeBreak(target) {
   await savePlayerState();
 }
 function updateBreaking(now, target) { if (!input.pointerDown || !target.inBounds || !target.reachable || !target.tileId || shopOpen || pendingWorldChange || inventoryBusy || adminTools?.isOpen()) { stopBreaking(); return; } if (!canBuild()) { stopBreaking(); return; } const definition = TILE_DEFS[target.tileId]; if (!definition || world.isProtected(target.x, target.y) || (definition.unbreakable && !isAdminAccount(user, localMode))) { stopBreaking(); return; } if (!breaking.active || breaking.x !== target.x || breaking.y !== target.y) Object.assign(breaking, { active: true, x: target.x, y: target.y, startedAt: now, progress: 0 }); breaking.progress = (now - breaking.startedAt) / ((definition.breakTime ?? 500) * (countItem(inventory, "pickaxe") > 0 ? .45 : 1)); if (breaking.progress >= 1) { completeBreak(target); stopBreaking(); } }
-async function placeSelected(brushTarget = null) { if (shopOpen || pendingWorldChange || inventoryBusy || adminTools?.isOpen()) return; const target = brushTarget ? { ...brushTarget, inBounds: world.inBounds(brushTarget.x, brushTarget.y), reachable: true, tileId: world.get(brushTarget.x, brushTarget.y) } : tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (slot.itemId === "ghost_buster") { await captureGhost(); return; } if (item.throwable) { throwSelectedSnowball(); return; } if (item.buildsIgloo) { if (!canBuild()) { notify("Only the world owner can build here."); return; } await placeIgloo(target); return; } if (!item.placesTile) { notify("That item cannot be placed."); return; } if (world.isProtected(target.x, target.y)) { notify("The family house is protected. Please build outside it."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
-  const check = placementCheck(world, player, slot.itemId, target, canBuild(), buildMode);
-  if (!check.ok) { if (!brushTarget) notify(check.reason); return; }
+async function placeSelected() { if (shopOpen || pendingWorldChange || inventoryBusy || adminTools?.isOpen()) return; const target = tileTarget(), slot = inventory[selectedSlot]; if (!target.inBounds || !target.reachable || !slot) return; const item = ITEM_DEFS[slot.itemId]; if (slot.itemId === "ghost_buster") { await captureGhost(); return; } if (item.throwable) { throwSelectedSnowball(); return; } if (item.buildsIgloo) { if (!canBuild()) { notify("Only the world owner can build here."); return; } await placeIgloo(target); return; } if (!item.placesTile) { notify("That item cannot be placed."); return; } if (world.isProtected(target.x, target.y)) { notify("The family house is protected. Please build outside it."); return; } if (!canBuild()) { notify("This world is locked — only the lock's owner can build here."); return; }
   if (item.backgroundOnly) {
     if (world.getBackground(target.x, target.y)) { notify("That background tile is occupied."); return; }
     const id = slot.itemId; if (!removeItem(inventory, id, 1)) return;
@@ -337,7 +305,7 @@ async function placeSelected(brushTarget = null) { if (shopOpen || pendingWorldC
   if (item.placesTile === 71 && !world.isSolid(target.x, target.y - 1)) { notify("Icicles must hang below a solid ceiling."); return; }
   const craftedSeed = spliceResult(target.tileId, item.placesTile);
   if (target.tileId && !craftedSeed) { notify("That space is occupied. These items cannot be spliced."); return; }
-  if (!craftedSeed && TILE_DEFS[item.placesTile]?.solid && playerOverlapsTile(player, target.x, target.y)) { notify("Give yourself a little room."); return; }
+  if (!craftedSeed && playerOverlapsTile(player, target.x, target.y)) { notify("Give yourself a little room."); return; }
   const itemId = slot.itemId;
   if (!removeItem(inventory, itemId, 1)) return;
   stopBreaking();
@@ -537,14 +505,7 @@ function drawWorld() { drawSky(context, assets, camera, canvas.width, canvas.hei
     if (world.get(x, y) === 71 && world.blockSettings[`${x},${y}`]?.icicleFallAt) continue;
     drawTile(context, assets, world.get(x, y), x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y, TILE_SIZE, false, bouncePadAge(x, y));
   }
-  drawWinterActivities(context, assets, winterActivities, camera); drawWildGhosts(context, world, camera); if (petFollower) drawGhost(context, petFollower, camera, true); drawNpcs(context, adminTools?.getNpcs() ?? {}, camera); Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user.uid && isFresh(remote)) { if (remote.ghostPet && Number.isFinite(remote.ghostPet.x) && Number.isFinite(remote.ghostPet.y)) drawGhost(context, remote.ghostPet, camera, true); drawPlayer(context, { x: remote.x, y: remote.y, width: 22, height: TILE_SIZE, facing: remote.facing || 1, outfitId: remote.outfitId }, camera, remote.username, true); } }); drawPlayer(context, player, camera, username); drawWorldLighting(context, world, camera, viewWidth, viewHeight); drawAutumnAtmosphere(context, world, camera, viewWidth, viewHeight); const target = miningTarget();
-  if (buildMode && !shopOpen && !inventoryOpen && !recipesOpen && !adminTools?.isOpen()) {
-    const buildingTarget = tileTarget(), itemId = inventory[selectedSlot]?.itemId;
-    const check = placementCheck(world, player, itemId, buildingTarget, canBuild(), true);
-    drawBuildPreview(context, assets, world, camera, buildingTarget, itemId, check, viewWidth, viewHeight);
-    buildHint.textContent = `${ITEM_DEFS[itemId]?.name ?? "Select a block"} · ${check.reason} · Drag to build · B to mine`;
-    buildHint.hidden = false;
-  } else { buildHint.hidden = true; drawCrosshair(context, target, camera, target.reachable); } context.restore(); if (world.worldType === "ice") drawWinterSnow(context, camera, canvas.width, canvas.height); hotbarLayout = drawHotbar(context, assets, inventory, selectedSlot, canvas.width, canvas.height); drawHud(context, assets, { inventory, selectedSlot, toast, target, breaking, worldName: requestedName, online: onlineCount(), lavaHits: lava.hits }, canvas.width); invLayout = inventoryOpen ? drawInventoryPanel(context, assets, inventory, selectedSlot, canvas.width, canvas.height, drag.from >= 0 ? { from: drag.from, pointer: input.pointer } : null) : null; shopLayout = shopOpen ? drawShop(context, assets, inventory, canvas.width, canvas.height, shopSection, isAdminAccount(user, localMode), inventoryMeta, shopPage) : null; }
+  drawWinterActivities(context, assets, winterActivities, camera); drawWildGhosts(context, world, camera); if (petFollower) drawGhost(context, petFollower, camera, true); drawNpcs(context, adminTools?.getNpcs() ?? {}, camera); Object.entries(remotePlayers).forEach(([uid, remote]) => { if (uid !== user.uid && isFresh(remote)) { if (remote.ghostPet && Number.isFinite(remote.ghostPet.x) && Number.isFinite(remote.ghostPet.y)) drawGhost(context, remote.ghostPet, camera, true); drawPlayer(context, { x: remote.x, y: remote.y, width: 22, height: TILE_SIZE, facing: remote.facing || 1, outfitId: remote.outfitId }, camera, remote.username, true); } }); drawPlayer(context, player, camera, username); drawWorldLighting(context, world, camera, viewWidth, viewHeight); drawAutumnAtmosphere(context, world, camera, viewWidth, viewHeight); const target = miningTarget(); drawCrosshair(context, target, camera, target.reachable); context.restore(); if (world.worldType === "ice") drawWinterSnow(context, camera, canvas.width, canvas.height); hotbarLayout = drawHotbar(context, assets, inventory, selectedSlot, canvas.width, canvas.height); drawHud(context, assets, { inventory, selectedSlot, toast, target, breaking, worldName: requestedName, online: onlineCount(), lavaHits: lava.hits }, canvas.width); invLayout = inventoryOpen ? drawInventoryPanel(context, assets, inventory, selectedSlot, canvas.width, canvas.height, drag.from >= 0 ? { from: drag.from, pointer: input.pointer } : null) : null; shopLayout = shopOpen ? drawShop(context, assets, inventory, canvas.width, canvas.height, shopSection, isAdminAccount(user, localMode), inventoryMeta, shopPage) : null; }
 function frame(now) {
   if (!running) return;
   const delta = Math.min(.033, (now - lastFrame) / 1000 || 0); lastFrame = now;
@@ -556,8 +517,7 @@ function frame(now) {
   const activePet = inventoryMeta.ghostPets?.[inventoryMeta.equippedGhost];
   petFollower = followGhost(activePet, player, petFollower, delta);
   input.jumpPressed = false; updateCamera(delta);
-  if (!modalOpen && !inventoryOpen && !buildMode) updateBreaking(now, miningTarget()); else stopBreaking();
-  updateBuildBrush(now);
+  if (!modalOpen && !inventoryOpen) updateBreaking(now, miningTarget()); else stopBreaking();
   toast.timeLeft = Math.max(0, toast.timeLeft - delta);
   if (!localMode && now - lastPresenceUpdate >= 100) { lastPresenceUpdate = now - ((now - lastPresenceUpdate) % 100); updatePresence(); }
   if (now - lastPlayerSave > 250) { lastPlayerSave = now; savePlayerState(); }
@@ -614,20 +574,13 @@ async function enterLocalWorld() {
 }
 
 window.addEventListener("resize", resize); window.addEventListener("beforeunload", () => { savePlayerState(); });
-window.addEventListener("keydown", (event) => { if (event.target.closest?.("input, textarea, select") || adminTools?.isOpen()) { if (event.key === "Escape") adminTools?.close(); return; } if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if ((event.key === "b" || event.key === "B") && !event.repeat) setBuildMode(!buildMode); if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) { if (inventory[selectedSlot]?.itemId === "snowball") throwSelectedSnowball(false); else if (inventory[selectedSlot]?.itemId === "ghost_buster") captureGhost(false); else placeSelected(); } if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { if (shopOpen && shopSection) { shopSection = null; shopLayout = null; } else setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); closeDoorSettings(); adminTools?.cancelPlacement(); } });
+window.addEventListener("keydown", (event) => { if (event.target.closest?.("input, textarea, select") || adminTools?.isOpen()) { if (event.key === "Escape") adminTools?.close(); return; } if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault(); if (event.key === "a" || event.key === "ArrowLeft") input.left = true; if (event.key === "d" || event.key === "ArrowRight") input.right = true; if (["w", "W", "ArrowUp", " "].includes(event.key)) { if (!event.repeat) input.jumpPressed = true; input.jumpHeld = true; } if (/^[1-5]$/.test(event.key)) selectedSlot = Number(event.key) - 1; if ((event.key === "e" || event.key === "E") && !event.repeat) { if (inventory[selectedSlot]?.itemId === "snowball") throwSelectedSnowball(false); else if (inventory[selectedSlot]?.itemId === "ghost_buster") captureGhost(false); else placeSelected(); } if ((event.key === "i" || event.key === "I") && !event.repeat) setInventoryOpen(!inventoryOpen); if (event.key === "+" || event.key === "=") setZoom(zoom * 1.15); if (event.key === "-" || event.key === "_") setZoom(zoom / 1.15); if (event.key === "Escape") { if (shopOpen && shopSection) { shopSection = null; shopLayout = null; } else setShopOpen(false); setInventoryOpen(false); setRecipesOpen(false); closeDoorSettings(); adminTools?.cancelPlacement(); } });
 window.addEventListener("keyup", (event) => { if (["w", "W", "ArrowUp", " "].includes(event.key)) input.jumpHeld = false; if (event.key === "a" || event.key === "ArrowLeft") input.left = false; if (event.key === "d" || event.key === "ArrowRight") input.right = false; });
 window.addEventListener("pointerup", (event) => { if (drag.from < 0) return; pointerPosition(event); const hit = inventoryOpen && invLayout ? invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size) : null; if (hit && hit.index !== drag.from) moveInventorySlot(drag.from, hit.index); drag.from = -1; });
-canvas.addEventListener("pointermove", event => { pointerPosition(event); if (painting) queueBrush(tileTarget()); }); canvas.addEventListener("pointerdown", (event) => { event.preventDefault(); pointerPosition(event); canvas.focus(); if (!running || recipesOpen || !doorSettings.hidden || !tradePanel.hidden || adminTools?.isOpen() || inventoryBusy) return; if (shopOpen) { const action = shopActionAt(input.pointer, shopLayout); if (action?.kind === "pet") chooseGhostPet(action.petId); else if (action?.kind === "clothing") chooseClothing(action.outfitId); else if (action?.kind === "page") { shopPage = action.page; shopLayout = null; } else if (action?.kind === "buy") buy(action.offer); else if (action?.kind === "section") { if (action.sectionId === "admin") adminTools?.openMarket(); else { shopSection = action.sectionId; shopPage = 0; shopLayout = null; } } else if (action?.kind === "back") { shopSection = null; shopLayout = null; } else if (action?.kind === "close") setShopOpen(false); return; } if (adminTools?.handlePlacement(tileTarget())) return;
+canvas.addEventListener("pointermove", pointerPosition); canvas.addEventListener("pointerdown", (event) => { event.preventDefault(); pointerPosition(event); canvas.focus(); if (!running || recipesOpen || !doorSettings.hidden || !tradePanel.hidden || adminTools?.isOpen() || inventoryBusy) return; if (shopOpen) { const action = shopActionAt(input.pointer, shopLayout); if (action?.kind === "pet") chooseGhostPet(action.petId); else if (action?.kind === "clothing") chooseClothing(action.outfitId); else if (action?.kind === "page") { shopPage = action.page; shopLayout = null; } else if (action?.kind === "buy") buy(action.offer); else if (action?.kind === "section") { if (action.sectionId === "admin") adminTools?.openMarket(); else { shopSection = action.sectionId; shopPage = 0; shopLayout = null; } } else if (action?.kind === "back") { shopSection = null; shopLayout = null; } else if (action?.kind === "close") setShopOpen(false); return; } if (adminTools?.handlePlacement(tileTarget())) return;
   if (!shopOpen && !inventoryOpen) { const hitNpc = npcAtPoint(adminTools?.getNpcs() ?? {}, { x: input.pointer.x / zoom + camera.x, y: input.pointer.y / zoom + camera.y }); if (hitNpc) { adminTools.interact(hitNpc[0], inventory[selectedSlot]?.itemId === "wrench"); return; } }
-  if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } const hotbarHit = hotbarLayout?.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hotbarHit) { selectedSlot = hotbarHit.index; notify(inventory[selectedSlot] ? `Selected ${ITEM_DEFS[inventory[selectedSlot].itemId].name}.` : "Selected empty slot."); savePlayerState(); return; } if (inventory[selectedSlot]?.itemId === "ghost_buster") { captureGhost(); return; } if (inventory[selectedSlot]?.itemId === "snowball") { throwSelectedSnowball(); return; } if (inventory[selectedSlot]?.itemId === "igloo_kit") { placeSelected(); return; } if (inventory[selectedSlot]?.itemId === "wrench") { useWrenchAtPointer(); return; } if (buildMode && (event.button === 0 || event.pointerType === "touch")) {
-    const target = tileTarget(), check = placementCheck(world, player, inventory[selectedSlot]?.itemId, target, canBuild(), true);
-    clearBrush(); stopBreaking(); input.pointerDown = false;
-    if (!check.ok) { notify(check.reason); return; }
-    painting = true; queueBrush(target); canvas.setPointerCapture?.(event.pointerId); return;
-  } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } if (event.pointerType === "touch") { const selectedItem = ITEM_DEFS[inventory[selectedSlot]?.itemId]; const canSplice = selectedItem?.placesTile && spliceResult(target.tileId, selectedItem.placesTile); if ((!target.tileId || canSplice) && (!world.getBackground(target.x, target.y) || selectedItem?.placesTile) || canSplice || selectedItem?.backgroundOnly) { placeSelected(); return; } input.touchMineTarget = { x: target.x, y: target.y }; } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { painting = false; brushFrom = null; input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { clearBrush(); input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); if (inventory[selectedSlot]?.itemId === "wrench") useWrenchAtPointer(); else if (!adminTools?.isOpen() && !adminTools?.handlePlacement(tileTarget())) placeSelected(); });
+  if (inventoryOpen) { if (invLayout) { const hit = invLayout.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hit) { drag.from = hit.index; selectedSlot = hit.index; } else if (input.pointer.x < invLayout.x || input.pointer.x > invLayout.x + invLayout.width || input.pointer.y < invLayout.y || input.pointer.y > invLayout.y + invLayout.height) setInventoryOpen(false); } return; } const hotbarHit = hotbarLayout?.slots.find((slot) => input.pointer.x >= slot.x && input.pointer.x <= slot.x + slot.size && input.pointer.y >= slot.y && input.pointer.y <= slot.y + slot.size); if (hotbarHit) { selectedSlot = hotbarHit.index; notify(inventory[selectedSlot] ? `Selected ${ITEM_DEFS[inventory[selectedSlot].itemId].name}.` : "Selected empty slot."); savePlayerState(); return; } if (inventory[selectedSlot]?.itemId === "ghost_buster") { captureGhost(); return; } if (inventory[selectedSlot]?.itemId === "snowball") { throwSelectedSnowball(); return; } if (inventory[selectedSlot]?.itemId === "igloo_kit") { placeSelected(); return; } if (inventory[selectedSlot]?.itemId === "wrench") { useWrenchAtPointer(); return; } if (event.button === 0 || event.pointerType === "touch") { const target = tileTarget(); if (target.tileId === 6 && target.reachable) { leaveToWorldGate(); return; } if (event.pointerType === "touch") { const selectedItem = ITEM_DEFS[inventory[selectedSlot]?.itemId]; const canSplice = selectedItem?.placesTile && spliceResult(target.tileId, selectedItem.placesTile); if ((!target.tileId || canSplice) && (!world.getBackground(target.x, target.y) || selectedItem?.placesTile) || canSplice || selectedItem?.backgroundOnly) { placeSelected(); return; } input.touchMineTarget = { x: target.x, y: target.y }; } input.pointerDown = true; canvas.setPointerCapture?.(event.pointerId); } }); canvas.addEventListener("pointerup", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("pointercancel", () => { input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); }); canvas.addEventListener("contextmenu", (event) => { event.preventDefault(); if (inventory[selectedSlot]?.itemId === "wrench") useWrenchAtPointer(); else if (!adminTools?.isOpen() && !adminTools?.handlePlacement(tileTarget())) placeSelected(); });
 canvas.addEventListener("wheel", (event) => { event.preventDefault(); setZoom(zoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
-canvas.addEventListener("lostpointercapture", () => { painting = false; input.pointerDown = false; input.touchMineTarget = null; stopBreaking(); });
-buildButton.addEventListener("click", () => setBuildMode(!buildMode));
 shopButton.addEventListener("click", () => setShopOpen(!shopOpen)); bagButton.addEventListener("click", () => setInventoryOpen(!inventoryOpen)); recipesButton.addEventListener("click", () => setRecipesOpen(!recipesOpen)); recipesClose.addEventListener("click", () => setRecipesOpen(false)); leaveButton.addEventListener("click", leaveToWorldGate);
 doorSettingsClose.addEventListener("click", closeDoorSettings);
 doorSettingsForm.addEventListener("submit", async (event) => {
@@ -691,7 +644,6 @@ Object.entries(SEED_RECIPES).forEach(([pair, result]) => {
   recipesList.appendChild(row);
 });
 function resetControls() {
-  clearBrush();
   input.left = input.right = input.jumpHeld = input.jumpPressed = input.pointerDown = false;
   input.touchMineTarget = null;
   if (player) { player.jumpBuffer = 0; player.coyoteTime = 0; }

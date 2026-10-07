@@ -1,4 +1,3 @@
-import { placementCheck } from "../building.js";
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -57,7 +56,7 @@ for (const item of ['wood_seed', 'coal_seed', 'torch_seed']) {
   assert.equal(restored.get(5, 5), TILE_DEFS[tile].growsInto);
 }
 
-const placement = source.slice(source.indexOf('async function placeSelected('), source.indexOf('function updateCamera'));
+const placement = source.slice(source.indexOf('async function placeSelected()'), source.indexOf('function updateCamera'));
 const mutation = source.slice(source.indexOf('async function mutateWorld('), source.indexOf('async function savePlayerState('));
 for (const [first, second] of [['wood_seed', 'coal_seed'], ['coal_seed', 'wood_seed']]) {
   for (const mode of ['retry', 'changed', 'failure']) {
@@ -67,7 +66,7 @@ for (const [first, second] of [['wood_seed', 'coal_seed'], ['coal_seed', 'wood_s
     const state = {
       world, inventory: [{ itemId: second, count: 2 }], selectedSlot: 0,
       shopOpen: false, pendingWorldChange: false, inventoryBusy: false, adminTools: null,
-      player: { x: 5 * 32, y: 5 * 32, width: 22, height: 32 }, worldStateRef: {}, buildMode: false, placementCheck, ITEM_DEFS, TILE_DEFS, spliceResult, World, addItem, removeItem,
+      player: {}, worldStateRef: {}, ITEM_DEFS, TILE_DEFS, spliceResult, World, addItem, removeItem,
       tileTarget: () => ({ x: 5, y: 5, inBounds: true, reachable: true, tileId: world.get(5, 5) }),
       canBuild: () => true, playerOverlapsTile: () => false,
       notify: () => {}, stopBreaking: () => {}, savePlayerState: () => {},

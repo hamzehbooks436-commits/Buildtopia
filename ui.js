@@ -4,6 +4,7 @@ import { HOTBAR_SIZE, TILE_SIZE } from "./config.js";
 import { ITEM_DEFS, SHOP_ITEMS, SHOP_SECTIONS, TILE_DEFS } from "./definitions.js";
 import { countItem } from "./inventory.js";
 import { winterWeather } from "./winter.js";
+import { autumnWeather } from "./autumn.js";
 import { drawGhost, petState } from "./ghosts.js";
 
 function roundedRect(ctx, x, y, width, height, radius) {
@@ -45,13 +46,27 @@ export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
 }
 
 function drawAutumnSky(ctx, camera, width, height) {
+  const now = Date.now();
+  const weather = autumnWeather(now);
   ctx.save();
   const sky = ctx.createLinearGradient(0, 0, 0, height);
-  sky.addColorStop(0, "#656b7a"); sky.addColorStop(.55, "#a5a0a0"); sky.addColorStop(1, "#dfb88c");
+  sky.addColorStop(0, weather.sky[0]); sky.addColorStop(.55, weather.sky[1]); sky.addColorStop(1, weather.sky[2]);
   ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
-  const seconds = Date.now() / 1000;
+  const seconds = now / 1000;
+  if (weather.nightAmount > 0) {
+    ctx.globalAlpha = weather.nightAmount * .7;
+    ctx.fillStyle = "#e8e2ce";
+    for (let i = 0; i < 42; i++) {
+      const x = ((i * 173 + 41) % 997) / 997 * width;
+      const y = ((i * 97 + 23) % 389) / 389 * height * .55;
+      ctx.fillRect(x, y, i % 7 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1);
+    }
+    ctx.beginPath(); ctx.arc(width * .78, height * .19, Math.max(10, Math.min(width, height) * .032), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   for (let layer = 0; layer < 3; layer++) {
-    ctx.fillStyle = ["#747986", "#93939b", "#bab4af"][layer];
+    ctx.fillStyle = weather.clouds[layer];
+    ctx.globalAlpha = 1 - weather.nightAmount * .2;
     const span = 340 + layer * 110;
     const drift = (seconds * (3 + layer) - camera.x * .04) % span;
     for (let i = -2; i < Math.ceil(width / span) + 2; i++) {
@@ -60,8 +75,9 @@ function drawAutumnSky(ctx, camera, width, height) {
       ctx.beginPath(); ctx.ellipse(x + span * .35, y - 6, span * .25, height * .09, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
+  ctx.globalAlpha = 1;
   for (let layer = 0; layer < 2; layer++) {
-    ctx.fillStyle = layer ? "#a37b5b" : "#b99a7e";
+    ctx.fillStyle = weather.hills[layer];
     ctx.beginPath(); ctx.moveTo(0, height);
     for (let x = 0; x <= width + 40; x += 40) ctx.lineTo(x, height * (.81 + layer * .12) + Math.sin((x + camera.x * .12) / 120 + layer) * 24);
     ctx.lineTo(width, height); ctx.fill();
@@ -73,11 +89,12 @@ export function drawAutumnAtmosphere(ctx, world, camera, width, height) {
   if (world.worldType !== "autumn") return;
   ctx.save();
   const now = Date.now() / 1000;
+  const nightAmount = autumnWeather(now * 1000).nightAmount;
   for (let i = 0; i < 24; i++) {
     const x = ((i * 173 + now * (10 + i % 4) - camera.x * .35) % (width + 40) + width + 40) % (width + 40) - 20;
     const y = ((i * 97 + now * (14 + i % 7) - camera.y * .12) % (height + 30) + height + 30) % (height + 30) - 15;
     ctx.fillStyle = ["#efbb59", "#d77543", "#b74e43"][i % 3];
-    ctx.globalAlpha = .6;
+    ctx.globalAlpha = .6 - nightAmount * .25;
     ctx.fillRect(x + Math.sin(now + i) * 15, y, i % 2 ? 5 : 3, 2);
   }
   ctx.restore();
@@ -204,6 +221,7 @@ export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background
 }
 
 export function drawWorldLighting(ctx, world, camera, viewWidth, viewHeight) {
+  const nightDarkness = world.worldType === "autumn" ? autumnWeather().nightAmount * .42 : 0;
   const left = Math.max(0, Math.floor(camera.x / TILE_SIZE));
   const top = Math.max(0, Math.floor(camera.y / TILE_SIZE));
   const right = Math.min(world.width, Math.ceil((camera.x + viewWidth) / TILE_SIZE));
@@ -219,7 +237,8 @@ export function drawWorldLighting(ctx, world, camera, viewWidth, viewHeight) {
   ctx.save();
   for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) {
     const depth = y - world.surface[x];
-    const darkness = Math.max(0, Math.min(.72, depth * .085));
+    const undergroundDarkness = Math.max(0, Math.min(.72, depth * .085));
+    const darkness = 1 - (1 - undergroundDarkness) * (1 - nightDarkness);
     if (!darkness) continue;
     let illumination = 0;
     for (const light of lights) illumination = Math.max(illumination, Math.max(0, 1 - Math.hypot(x - light.x, y - light.y) / light.radius));

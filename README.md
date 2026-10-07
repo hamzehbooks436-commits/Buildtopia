@@ -62,6 +62,9 @@ World names beginning with `beach` generate tropical terrain with sand, palms, c
 
 ## Autumn worlds
 
+Autumn worlds follow a shared 12-minute day/night cycle: eight minutes of daylight and four minutes of night, with warm dusk and dawn transitions, a moon and stars behind drifting clouds, and dimmer nighttime terrain and leaves. Torches and Jack'o Lanterns light nearby surface tiles at night. The cycle continues through saves and applies automatically to existing autumn worlds.
+
+
 Create a **new** world beginning with **autumn** or **fall**, such as `autumn-forest` or `fall-village`. Existing saves retain their terrain. Worlds are now **256 × 72 blocks**, twice their original area. Autumn maps have a heavily clouded sky, drifting leaves, nearly flat orange ground, sparse one-block yellow/orange/red trees, a cabin, a pumpkin patch, a harvest stall, and a protected family house. Ponds and floating structure labels have been removed. Older 128-wide saves expand without shifting player builds; untouched generated autumn terrain is upgraded to the sparse layout.
 
 - **Pumpkin:** found around the forest and pumpkin patches. Mining returns a Pumpkin and has a **50% chance of one Pumpkin Crop**. Plant the crop to grow a Pumpkin Plant in 45 seconds; harvest for 1–3 pumpkins and a 50% chance of one crop.

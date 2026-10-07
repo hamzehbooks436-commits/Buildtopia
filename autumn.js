@@ -1,6 +1,28 @@
 export const AUTUMN_LEAF_INTERVAL = 3600000;
 export const MAX_AUTUMN_LEAVES = 5;
 
+export const AUTUMN_CYCLE_MS = 12 * 60 * 1000;
+const AUTUMN_DAY_PHASE = 2 / 3;
+const AUTUMN_TRANSITION = .04;
+const mixColor = (from, to, amount) => from.map((value, i) => Math.round(value + (to[i] - value) * amount));
+
+// A wall clock keeps the cycle running through saves and shared between players.
+export function autumnWeather(now = Date.now()) {
+  const phase = ((now % AUTUMN_CYCLE_MS) + AUTUMN_CYCLE_MS) % AUTUMN_CYCLE_MS / AUTUMN_CYCLE_MS;
+  const night = phase >= AUTUMN_DAY_PHASE;
+  const nightAmount = night ? Math.max(0, Math.min(1, (phase - AUTUMN_DAY_PHASE) / AUTUMN_TRANSITION, (1 - phase) / AUTUMN_TRANSITION)) : 0;
+  const dusk = Math.max(0, 1 - Math.abs(phase - AUTUMN_DAY_PHASE) / AUTUMN_TRANSITION);
+  const dawn = phase > 1 - AUTUMN_TRANSITION ? 4 * nightAmount * (1 - nightAmount) : 0;
+  const twilight = Math.max(dusk, dawn);
+  const color = (day, sunset, moonlit) => `rgb(${mixColor(mixColor(day, sunset, twilight), moonlit, nightAmount).join(', ')})`;
+  return {
+    phase, night, nightAmount,
+    sky: [color([101, 107, 122], [135, 81, 106], [17, 24, 46]), color([165, 160, 160], [211, 121, 91], [44, 48, 70]), color([223, 184, 140], [245, 169, 105], [82, 70, 82])],
+    clouds: [[116, 121, 134], [147, 147, 155], [186, 180, 175]].map(day => color(day, [154, 105, 106], [39, 43, 62])),
+    hills: [color([185, 154, 126], [166, 111, 93], [44, 41, 53]), color([163, 123, 91], [136, 87, 71], [33, 32, 43])],
+  };
+}
+
 // Flat woodland with long clear stretches between generated places.
 export function buildAutumnWorld(world) {
   world.worldType = "autumn";

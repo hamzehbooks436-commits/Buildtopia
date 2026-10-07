@@ -1,3 +1,4 @@
+import { placementCheck } from "../building.js";
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -7,7 +8,7 @@ import { addItem, removeItem } from '../inventory.js';
 
 // Exercise the actual placement and transaction callbacks without a live account.
 const source = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
-const placement = source.slice(source.indexOf('async function placeSelected()'), source.indexOf('function updateCamera'));
+const placement = source.slice(source.indexOf('async function placeSelected('), source.indexOf('function updateCamera'));
 const mutation = source.slice(source.indexOf('async function mutateWorld('), source.indexOf('async function savePlayerState('));
 function game(first, second, mode = 'success') {
   const world = new World();
@@ -16,7 +17,7 @@ function game(first, second, mode = 'success') {
   let saved = world.serialize();
   const state = {
     world, inventory, selectedSlot: 0, shopOpen: false, pendingWorldChange: false, inventoryBusy: false, adminTools: null,
-    player: {}, worldStateRef: {}, ITEM_DEFS, TILE_DEFS, spliceResult, World,
+    player: { x: 5 * 32, y: 5 * 32, width: 22, height: 32 }, worldStateRef: {}, buildMode: false, placementCheck, ITEM_DEFS, TILE_DEFS, spliceResult, World,
     addItem, removeItem, generateWorld: () => new World(),
     tileTarget: () => ({ x: 5, y: 5, inBounds: true, reachable: true, tileId: world.get(5, 5) }),
     canBuild: () => true, playerOverlapsTile: () => false,

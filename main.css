@@ -221,3 +221,8 @@ canvas { touch-action: none; }
   .recipe-row strong { grid-column: 1 / -1; }
   .recipe-arrow { grid-column: 2; grid-row: 1; }
 }
+
+.world-button.build-button { top: 224px; right: 16px; }
+.world-button.build-button[aria-pressed="true"] { background: linear-gradient(180deg,#55c96c,#238b4b); }
+.build-hint { position:absolute; z-index:2; bottom:94px; left:50%; transform:translateX(-50%); margin:0; max-width:calc(100% - 32px); padding:7px 12px; border-radius:10px; color:#eaffed; background:rgba(7,32,40,.88); font:600 12px system-ui; text-align:center; pointer-events:none; }
+@media (pointer:coarse) { .build-hint { bottom:170px; } }

@@ -1,3 +1,5 @@
+import { FURNITURE } from "./furniture.js";
+
 const BLOCK_2_4 = [{ count: 2, weight: 1 }, { count: 3, weight: 1 }, { count: 4, weight: 1 }];
 
 export const TILE_DEFS = {
@@ -185,6 +187,12 @@ export const ITEM_DEFS = {
   world_lock: { name: "World Lock", placesTile: 7, color: "#f2c14e", sprite: [314, 64, 18, 18], description: "Locks a world so only you can build or break in it." },
 };
 
+for (const furniture of FURNITURE) {
+  const { id, tile, name, color, lightRadius } = furniture;
+  TILE_DEFS[tile] = { name, color, solid: false, furnitureId: id, lightRadius, breakTime: 300, drops: [{ item: id, count: 1 }] };
+  ITEM_DEFS[id] = { name, color, placesTile: tile, furnitureId: id, description: lightRadius ? "Walk-through furniture that lights nearby tiles. Mine to move it." : "Walk-through furniture for your home. Mine to move it." };
+}
+
 // Make every terrain/decorative tile available to the admin catalogue, including
 // water, trees and crops that previously had no inventory item. Regular shops
 // still offer only their explicitly listed items.
@@ -196,6 +204,17 @@ for (const [id, tile] of Object.entries(TILE_DEFS)) {
 export const SLOT_UPGRADE = { item: "inventory_slots", amount: 5, cost: 500 };
 
 export const SHOP_ITEMS = [
+  ...FURNITURE.map(item => ({ item: item.id, amount: 1, cost: item.cost })),
+  { item: "wood_block", amount: 25, cost: 25 },
+  { item: "brick_block", amount: 25, cost: 40 },
+  { item: "glass_block", amount: 10, cost: 20 },
+  { item: "wood_background", amount: 25, cost: 15 },
+  { item: "ladder", amount: 10, cost: 20 },
+  { item: "builder_package", name: "Builder Pack", icon: "wood_block", amount: 1, cost: 150, rewards: [
+    { item: "wood_block", amount: 50 }, { item: "brick_block", amount: 50 },
+    { item: "glass_block", amount: 20 }, { item: "wood_background", amount: 50 },
+    { item: "ladder", amount: 10 },
+  ] },
   { item: "seed_package", amount: 3, cost: 250 },
   { item: "dirt_seed", amount: 2, cost: 2 },
   { item: "moon_seed", amount: 1, cost: 25 },
@@ -218,8 +237,9 @@ export const SHOP_ITEMS = [
 ];
 
 export const SHOP_SECTIONS = [
+  { id: "furniture", name: "Furniture & Home", icon: "soft_sofa", description: "Furniture, rugs, plants and lights", items: FURNITURE.map(item => item.id) },
   { id: "seeds", name: "Seeds & Growing", icon: "dirt_seed", description: "Seeds and surprise packages", items: ["seed_package", "dirt_seed", "moon_seed"] },
-  { id: "building", name: "Building Blocks", icon: "dirt_block", description: "Blocks, igloos and parkour packs", items: ["dirt_block", "rock", "igloo_kit", "checkpoint_block", "parkour_package"] },
+  { id: "building", name: "Building Blocks", icon: "dirt_block", description: "Blocks, igloos and parkour packs", items: ["builder_package", "wood_block", "brick_block", "glass_block", "wood_background", "ladder", "dirt_block", "rock", "igloo_kit", "checkpoint_block", "parkour_package"] },
   { id: "upgrades", name: "Tools & Upgrades", icon: "pickaxe", description: "Equipment, snowballs and upgrades", items: ["pickaxe", "snowball", "inventory_slots", "world_lock"] },
 ];
 

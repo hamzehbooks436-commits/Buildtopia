@@ -3,6 +3,7 @@ import { drawNpcClothes, NPC_OUTFIT_GROUPS } from "./npc-outfits.js";
 import { HOTBAR_SIZE, TILE_SIZE } from "./config.js";
 import { ITEM_DEFS, SHOP_ITEMS, SHOP_SECTIONS, TILE_DEFS } from "./definitions.js";
 import { countItem } from "./inventory.js";
+import { drawFurniture } from "./furniture.js";
 import { winterWeather } from "./winter.js";
 import { autumnWeather } from "./autumn.js";
 import { drawGhost, petState } from "./ghosts.js";
@@ -27,7 +28,7 @@ export function drawItemIcon(ctx, assets, itemId, x, y, size) {
   ctx.fill();
   ctx.save();
   ctx.globalAlpha = 1;
-  drawSprite(ctx, assets.tiles, item.sprite, x + size * .13, y + size * .13, size * .74);
+  if (!drawFurniture(ctx, item.furnitureId, x + size * .08, y + size * .08, size * .84)) drawSprite(ctx, assets.tiles, item.sprite, x + size * .13, y + size * .13, size * .74);
   ctx.restore();
 }
 
@@ -195,6 +196,7 @@ export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background
   ctx.save();
   if (background) ctx.globalAlpha = definition.backgroundOnly ? .9 : .19;
   ctx.imageSmoothingEnabled = false;
+  if (definition.furnitureId) { drawFurniture(ctx, definition.furnitureId, x, y, size); ctx.restore(); return; }
   if (definition.glow) {
     const pulse = .8 + Math.sin(Date.now() / 750 + x / 50) * .2;
     const glow = ctx.createRadialGradient(x + size / 2, y + size / 2, 0, x + size / 2, y + size / 2, size * 2.5);
@@ -238,7 +240,7 @@ export function drawWorldLighting(ctx, world, camera, viewWidth, viewHeight) {
   for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) {
     const depth = y - world.surface[x];
     const undergroundDarkness = Math.max(0, Math.min(.72, depth * .085));
-    const darkness = 1 - (1 - undergroundDarkness) * (1 - nightDarkness);
+    const darkness = nightDarkness ? 1 - (1 - undergroundDarkness) * (1 - nightDarkness) : undergroundDarkness;
     if (!darkness) continue;
     let illumination = 0;
     for (const light of lights) illumination = Math.max(illumination, Math.max(0, 1 - Math.hypot(x - light.x, y - light.y) / light.radius));
@@ -334,6 +336,20 @@ export function drawPlayer(ctx, player, camera, name = "", remote = false) {
     ctx.fillStyle = remote ? "#bcecff" : "#fff3ad";
     ctx.fillText(name, x + 11, y - 6);
   }
+  ctx.restore();
+}
+
+export function drawBuildPreview(ctx, assets, world, camera, target, itemId, check, width, height) {
+  const item = ITEM_DEFS[itemId];
+  if (!item?.placesTile) return;
+  const x = target.x * TILE_SIZE - camera.x, y = target.y * TILE_SIZE - camera.y;
+  ctx.save();
+  ctx.strokeStyle = "rgba(180,210,220,.12)"; ctx.lineWidth = 1;
+  for (let gx = -camera.x % TILE_SIZE; gx < width; gx += TILE_SIZE) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,height); ctx.stroke(); }
+  for (let gy = -camera.y % TILE_SIZE; gy < height; gy += TILE_SIZE) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(width,gy); ctx.stroke(); }
+  ctx.globalAlpha = .6; drawTile(ctx, assets, item.placesTile, x, y); ctx.globalAlpha = 1;
+  ctx.fillStyle = check.ok ? "rgba(90,225,150,.18)" : "rgba(255,100,100,.24)";
+  ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.strokeStyle = check.ok ? "#7cf3ac" : "#ff827d"; ctx.lineWidth = 2; ctx.strokeRect(x+1,y+1,TILE_SIZE-2,TILE_SIZE-2);
   ctx.restore();
 }
 
@@ -529,9 +545,11 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
   sections = [...sections, clothingSection];
   const allClothes = [...CLOTHING_OFFERS].sort((a, b) => Number(b.group === "autumn") - Number(a.group === "autumn"));
   const pageSize = width < 560 ? 3 : 6;
-  const pageCount = Math.max(1, Math.ceil((petView ? petEntries.length : allClothes.length) / pageSize));
+  const sectionOffers = section && !clothing && !petView ? SHOP_ITEMS.filter(offer => section.items.includes(offer.item)) : [];
+  const paginated = clothing || petView || sectionOffers.length > pageSize;
+  const pageCount = Math.max(1, Math.ceil((petView ? petEntries.length : clothing ? allClothes.length : sectionOffers.length) / pageSize));
   page = Math.max(0, Math.min(pageCount - 1, page));
-  const entries = petView ? (petEntries.length ? petEntries.slice(page * pageSize, (page + 1) * pageSize) : [{ empty: true }]) : clothing ? allClothes.slice(page * pageSize, (page + 1) * pageSize) : section ? SHOP_ITEMS.filter((offer) => section.items.includes(offer.item)) : sections;
+  const entries = petView ? (petEntries.length ? petEntries.slice(page * pageSize, (page + 1) * pageSize) : [{ empty: true }]) : clothing ? allClothes.slice(page * pageSize, (page + 1) * pageSize) : section ? sectionOffers.slice(page * pageSize, (page + 1) * pageSize) : sections;
   const columns = width < 560 ? 1 : 2;
   ctx.fillStyle = "rgba(1, 30, 43, .62)";
   ctx.fillRect(0, 0, width, height);
@@ -539,7 +557,7 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
   const rows = Math.ceil(entries.length / columns);
   const cardHeight = entries.some((entry) => entry.rewards) ? 116 : 75;
   const rowStep = cardHeight + 18;
-  const panelHeight = 145 + (rows - 1) * rowStep + cardHeight + (clothing || petView ? 106 : 24);
+  const panelHeight = 145 + (rows - 1) * rowStep + cardHeight + (paginated ? (clothing || petView ? 106 : 68) : 24);
   // Fit all offers on small displays; hit testing uses the same transform.
   const scale = Math.min(1, Math.max(1, height - 32) / panelHeight);
   const x = (width - panelWidth) / 2;
@@ -587,6 +605,9 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
       button("‹ Outfits", x + 18, footerY, 125, { kind: "section", sectionId: "clothes" });
       button("Dismiss pet", x + panelWidth - 150, footerY, 132, { kind: "pet", petId: null });
     }
+  }
+  if (paginated) {
+    const footerY = y + panelHeight - 76;
     button("‹ Prev", x + 18, footerY + 38, 64, { kind: "page", page: Math.max(0, page - 1) });
     button("Next ›", x + panelWidth - 82, footerY + 38, 64, { kind: "page", page: Math.min(pageCount - 1, page + 1) });
     ctx.fillStyle = "#c9eaf0"; ctx.textAlign = "center"; ctx.font = "600 12px system-ui";
@@ -639,7 +660,7 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
       return;
     }
     if (offer.rewards) {
-      drawItemIcon(ctx, assets, "bounce_pad", cardX + 12, cardY + 14, 46);
+      drawItemIcon(ctx, assets, offer.icon ?? "bounce_pad", cardX + 12, cardY + 14, 46);
       ctx.fillStyle = "#fff";
       ctx.font = "800 14px system-ui";
       ctx.fillText(offer.name, cardX + 68, cardY + 30, cardWidth - 78);

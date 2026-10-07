@@ -92,7 +92,11 @@ for (const [width, height] of [[768, 500], [390, 844], [844, 390]]) {
     const action = shopActionAt(hit(menu, card), menu);
     assert.equal(action.kind, "section");
     if (action.sectionId === "clothes") continue; // Clothing purchases have a separate ownership flow.
-    const layout = drawShop(ctx, {}, [], width, height, action.sectionId);
+    const section = SHOP_SECTIONS.find(section => section.id === action.sectionId);
+    const pageSize = width < 560 ? 3 : 6;
+    const count = SHOP_ITEMS.filter(offer => section.items.includes(offer.item)).length;
+    for (let page = 0; page < Math.ceil(count / pageSize); page++) {
+    const layout = drawShop(ctx, {}, [], width, height, action.sectionId, false, {}, page);
     assert.ok(layout.y + layout.panelHeight * layout.scale <= height, "Section fits the viewport");
     for (const offerCard of layout.cards) {
       const offer = shopOfferAt(hit(layout, offerCard), layout);
@@ -107,6 +111,7 @@ for (const [width, height] of [[768, 500], [390, 844], [844, 390]]) {
       assert.equal(shopOfferAt(hit(layout, button), layout), null);
     }
   }
+}
 }
 assert.equal(seenOffers.size, SHOP_ITEMS.length, "All market offers are available");
 console.log("Platform collision, bounce, ice momentum, spikes, persistence and market checks passed.");

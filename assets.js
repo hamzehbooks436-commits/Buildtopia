@@ -12,7 +12,7 @@ export function loadImage(src) {
 export function createTileAtlas() {
   const canvas = document.createElement("canvas");
   canvas.width = 352;
-  canvas.height = 320;
+  canvas.height = 392;
   const ctx = canvas.getContext("2d");
 
   function paint(rect, painter) {
@@ -312,6 +312,16 @@ export function createTileAtlas() {
     return "#abcbdc";
   });
 
+  paint([292, 250, 20, 20], (x, y) => {
+    if (y === 1 && x >= 7 && x <= 12 || y === 2 && x >= 5 && x <= 14) return "#354c6f";
+    if ((x === 7 || x === 11) && y === 5 || x === 9 && (y === 12 || y === 15)) return "#172c48";
+    if (y === 6 && x >= 10 && x <= 14) return "#ff9c43";
+    if (y === 9 && x >= 5 && x <= 14 || x === 13 && y >= 9 && y <= 12) return "#ef6683";
+    if (y >= 10 && y <= 13 && (x === y - 10 || x === 29 - y)) return "#945232";
+    if (Math.hypot(x - 9.5, y - 5.5) <= 4 || Math.hypot((x - 9.5) / 7, (y - 13.5) / 6) <= 1) return x < 10 ? "#fff" : "#c5e7f5";
+    return null;
+  });
+
   // Wrench inventory tool.
   paint([314, 112, 18, 18], (x, y) => {
     if (x <= 8 && y <= 8 && Math.hypot(x - 4, y - 4) <= 4) {
@@ -353,6 +363,25 @@ export function createTileAtlas() {
   sproutArt([224, 160, 20, 20], "#6d5a20", blockPalettes.yellow);
 
   // Dirt Seed [3,193,18,18]
+  // Coal ore, replantable crops and a small bright torch.
+  paint([4, 280, 20, 20], (x, y) => {
+    const seam = ((x - 6) ** 2 + (y - 7) ** 2 < 12) || ((x - 13) ** 2 + (y - 13) ** 2 < 15);
+    if (seam) return x % 4 === 0 ? "#60778c" : "#263140";
+    return x === 0 || y === 0 ? "#c5c0ee" : "#8883b9";
+  });
+  seedArt([28, 280, 18, 18], ["#b8753d", "#754829", "#ffcf88"]);
+  seedArt([50, 280, 18, 18], ["#394457", "#202936", "#8ca9bc"]);
+  seedArt([120, 280, 18, 18], ["#ffca55", "#de813b", "#fff6bb"]);
+  sproutArt([142, 280, 20, 20], "#a26335", ["#ffca55", "#ff883e", "#fff6bb"], "#fff6bb");
+  sproutArt([72, 280, 20, 20], "#56b86f", ["#394457", "#202936", "#8ca9bc"], "#60778c");
+  paint([96, 280, 20, 20], (x, y) => {
+    if (x >= 8 && x <= 11 && y >= 10) return x === 8 ? "#ffcf88" : "#a26335";
+    const flame = Math.abs(x - 9.5) / 4 + Math.abs(y - 6) / 6;
+    if (flame > 1) return null;
+    return flame < .4 ? "#fff6bb" : flame < .75 ? "#ffd454" : "#ff883e";
+  });
+
+  // Dirt Seed [3,193,18,18]
   seedArt([3, 193, 18, 18], ["#70e65d", "#2ab66c", "#c3ff81"]);
 
   // Moonflower Seed [4,223,18,18]
@@ -377,6 +406,83 @@ export function createTileAtlas() {
     if (facet > 5.4) return "#d9a72e";
     if (x - y < -1.5 && facet < 5) return "#fff3ad";
     return "#ffdf5f";
+  });
+
+  const pumpkinArt = (rect, carved = false, plant = false) => paint(rect, (x, y) => {
+    if (plant && y >= 16) {
+      if ((x >= 2 && x <= 17 && y === 18) || (x >= 3 && x <= 6 && y === 17)) return "#7b8944";
+    }
+    if (x >= 9 && x <= 11 && y >= 2 && y <= 5) return x === 9 ? "#95a34e" : "#596b36";
+    const radius = Math.hypot((x - 9.5) / 9, (y - 12) / 7.5);
+    if (radius > 1) return null;
+    if (carved && (((x >= 4 && x <= 7) || (x >= 12 && x <= 15)) && y >= 8 && y <= 10 || x >= 6 && x <= 13 && y >= 13 && y <= 15 && (y === 14 || x % 3 !== 0))) return "#ffe890";
+    if (radius > .85) return "#9b4e27";
+    if (x === 5 || x === 10 || x === 15) return "#ce632d";
+    return x < 10 && y < 12 ? "#ffc265" : "#e78a32";
+  });
+  pumpkinArt([4, 320, 20, 20]);
+  seedArt([28, 320, 18, 18], ["#efaa56", "#9b4e27", "#ffdb92"]);
+  pumpkinArt([50, 320, 20, 20], false, true);
+  pumpkinArt([74, 320, 20, 20], true);
+  seedArt([98, 320, 18, 18], ["#ffc55b", "#9b4e27", "#fff3b1"]);
+  pumpkinArt([120, 320, 20, 20], true, true);
+  paint([144, 320, 20, 20], (x, y) => {
+    const colors = ["#d8853d", "#e8b949", "#b94937", "#a75c34", "#f1c363"];
+    const i = (Math.floor(x / 4) + Math.floor(y / 3) * 3) % colors.length;
+    return (x + y * 3) % 7 === 0 ? "#774935" : colors[i];
+  });
+  paint([168, 320, 20, 20], (x, y) => {
+    if (y % 5 === 0) return "#49382f";
+    if (y % 5 === 1) return "#a77a51";
+    if ((x + Math.floor(y / 5) * 7) % 19 === 0) return "#44372d";
+    return (x + y) % 9 === 0 ? "#785239" : "#876044";
+  });
+  paint([192, 320, 20, 20], (x, y) => {
+    if (y <= 2) return ["#e9a54b", "#ce7737", "#b95232"][(Math.floor(x / 3) + y) % 3];
+    if ((x * 3 + y * 7) % 23 < 2) return "#e99b61";
+    if (y === 19 || x === 19) return "#975330";
+    return "#c3773f";
+  });
+  for (const [rect, light, base, dark] of [
+    [[216, 320, 20, 20], "#ffe58b", "#e7ba42", "#b78132"],
+    [[240, 320, 20, 20], "#ffc374", "#e1873b", "#a7542e"],
+    [[264, 320, 20, 20], "#f58865", "#b94840", "#843b37"],
+  ]) paint(rect, (x, y) => {
+    const canopy = Math.min(Math.hypot((x - 6) / 6, (y - 7) / 5), Math.hypot((x - 13) / 6, (y - 7) / 5), Math.hypot((x - 10) / 6, (y - 4) / 4));
+    if (canopy <= 1) return canopy > .83 ? dark : (x * 2 + y * 3) % 13 < 4 ? light : base;
+    if (x >= 8 && x <= 11 && y >= 10) return x < 10 ? "#bf8551" : "#744935";
+    if (y === 19 && x >= 6 && x <= 13) return "#744935";
+    return null;
+  });
+  paint([288, 320, 20, 20], (x, y) => {
+    if (y === 0 || x === 0) return "#f2d681";
+    if (x === 4 || x === 15) return "#87623c";
+    if (y === 19 || x === 19) return "#ab803d";
+    return (x * 3 + y) % 6 === 0 ? "#edca65" : "#d5ad51";
+  });
+  paint([4, 344, 20, 20], (x, y) => {
+    if ((x >= 2 && x <= 4 || x >= 15 && x <= 17) && y >= 2) return x === 2 || x === 15 ? "#e4b477" : "#93633e";
+    if (y === 7 || y === 13) return "#d0a171";
+    if (y === 8 || y === 14) return "#93633e";
+    return null;
+  });
+  paint([28, 344, 20, 20], (x, y) => y % 5 === 0 || (x + Math.floor(y / 5) % 2 * 5) % 10 === 0 ? "#45332d" : y % 5 === 1 ? "#92684d" : "#694839");
+  paint([52, 344, 20, 20], (x, y) => {
+    if (x === 0 || y === 0 || x === 19 || y === 19) return "#795032";
+    if (Math.abs(x - y) <= 1 || Math.abs(x + y - 19) <= 1) return "#efd19a";
+    return y % 5 === 0 ? "#90623e" : "#c18b53";
+  });
+  paint([76, 344, 20, 20], (x, y) => {
+    if (y >= 12 && y <= 18 && x >= 8 && x <= 11) return x < 10 ? "#f4d8ae" : "#c3a388";
+    if (y >= 5 && y <= 11 && Math.hypot((x - 9.5) / 8, (y - 11) / 8) <= 1) return (x + y) % 7 < 2 ? "#ffe8ba" : "#ba5844";
+    return null;
+  });
+  paint([100, 344, 20, 20], (x, y) => {
+    if (x >= 3 && x <= 8 && y >= 4 && y <= 16) return x === 3 ? "#375c60" : y % 4 === 0 ? "#8be3c2" : "#558783";
+    if (x >= 9 && x <= 14 && y >= 8 && y <= 11) return y === 8 ? "#c6e4d5" : "#63888c";
+    if (x >= 15 && x <= 18 && y >= 6 && y <= 13) return x === 18 ? "#eeae55" : "#9ad9c9";
+    if (x >= 10 && x <= 12 && y >= 12 && y <= 17) return "#42626a";
+    return null;
   });
 
   return canvas;

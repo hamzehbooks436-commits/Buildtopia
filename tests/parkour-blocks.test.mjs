@@ -86,11 +86,12 @@ for (const [width, height] of [[768, 500], [390, 844], [844, 390]]) {
     return { x: layout.offsetX + (card.x + 10) * layout.scale, y: layout.y + (card.y + 10 - layout.y) * layout.scale };
   }
   const menu = drawShop(ctx, {}, [], width, height);
-  assert.equal(menu.cards.length, SHOP_SECTIONS.length);
+  assert.equal(menu.cards.length, SHOP_SECTIONS.length + 1);
   for (const card of menu.cards) {
     assert.equal(shopOfferAt(hit(menu, card), menu), null, "Opening a category never buys an item");
     const action = shopActionAt(hit(menu, card), menu);
     assert.equal(action.kind, "section");
+    if (action.sectionId === "clothes") continue; // Clothing purchases have a separate ownership flow.
     const layout = drawShop(ctx, {}, [], width, height, action.sectionId);
     assert.ok(layout.y + layout.panelHeight * layout.scale <= height, "Section fits the viewport");
     for (const offerCard of layout.cards) {

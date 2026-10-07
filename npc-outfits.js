@@ -3,9 +3,18 @@ export const NPC_OUTFIT_GROUPS = [
   { id: "normal", name: "Normal", count: 20 },
   { id: "winter", name: "Winter", count: 7 },
   { id: "summer", name: "Summer", count: 8 },
+  { id: "autumn", name: "Autumn", count: 7 },
 ];
 
 export const NPC_OUTFITS = [
+  // Seven autumn outfits shared by the market and NPC wardrobe.
+  { id: "autumn-maple-knit", name: "Maple Knit Sweater", group: "autumn", style: "knit", top: "#bd6038", bottom: "#493d37", trim: "#f5cf91" },
+  { id: "autumn-plaid", name: "Harvest Plaid Shirt", group: "autumn", style: "jacket", top: "#96503c", bottom: "#344960", trim: "#e6b56a", pattern: "checks" },
+  { id: "autumn-cardigan", name: "Mustard Cardigan", group: "autumn", style: "cardigan", top: "#c49a3c", bottom: "#554437", trim: "#f5e4bb" },
+  { id: "autumn-trench", name: "Chestnut Trench Coat", group: "autumn", style: "trench", top: "#96664b", bottom: "#343c49", trim: "#e3c498" },
+  { id: "autumn-scarf", name: "Forest Coat & Scarf", group: "autumn", style: "wool", top: "#50674a", bottom: "#403a37", trim: "#dc9147" },
+  { id: "autumn-hoodie", name: "Pumpkin Hoodie", group: "autumn", style: "hoodie", top: "#d17c36", bottom: "#4b405b", trim: "#f4d6a3" },
+  { id: "autumn-dress", name: "Burgundy Autumn Dress", group: "autumn", style: "dress", top: "#883e52", bottom: "#883e52", trim: "#d5b16a" },
   // 20 everyday outfits, with different cuts, details and accessories.
   { id: "casual-tee", name: "Casual T-shirt", group: "normal", style: "tee", top: "#8df0a4", bottom: "#345d8c", trim: "#edf9ef" },
   { id: "striped-tee", name: "Striped T-shirt", group: "normal", style: "tee", top: "#58b8ed", bottom: "#283f61", trim: "#ffffff", pattern: "stripes" },
@@ -49,12 +58,19 @@ export const NPC_OUTFITS = [
 export const NPC_OUTFIT_BY_ID = Object.fromEntries(NPC_OUTFITS.map(outfit => [outfit.id, outfit]));
 export function npcOutfit(id) { return NPC_OUTFIT_BY_ID[id] ?? NPC_OUTFIT_BY_ID["casual-tee"]; }
 
-// Clothes are painted on the same 32-pixel grid as the NPC's face and hair.
+// Fit the original wardrobe coordinates onto the player's 22 x 32 pixel body.
 // Presets differ in garment shape and pixel details, as well as their palette.
 export function drawNpcClothes(ctx, npc) {
   const outfit = npcOutfit(npc.outfitId), style = outfit.style;
   const top = npc.outfit || outfit.top, bottom = outfit.bottom, trim = outfit.trim;
-  const p = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+  const bodyX = x => Math.max(0, Math.min(22, Math.round((x - 3) * 22 / 27)));
+  const bodyY = y => Math.max(0, Math.min(32, Math.round(y <= 24 ? 15 + (y - 10) * 11 / 14 : 26 + (y - 24) * 6 / 8)));
+  const p = (color, x, y, w, h) => {
+    const left = bodyX(x), top = bodyY(y);
+    const width = Math.min(22 - left, Math.max(1, bodyX(x + w) - left));
+    const height = Math.min(32 - top, Math.max(1, bodyY(y + h) - top));
+    ctx.fillStyle = color; ctx.fillRect(left, top, width, height);
+  };
   const short = outfit.group === "summer";
   const sleeveless = ["tank", "sundress", "sport", "lifeguard"].includes(style);
   const dress = ["dress", "sundress", "robe"].includes(style);
@@ -74,6 +90,8 @@ export function drawNpcClothes(ctx, npc) {
   if (outfit.pattern === "stars") { p(trim, 11, 15, 3, 1); p(trim, 12, 14, 1, 3); p(trim, 21, 24, 3, 1); }
   if (outfit.pattern === "paint") { p("#ee6980", 12, 20, 3, 3); p("#65a8ef", 19, 23, 4, 2); p("#8dd687", 15, 26, 2, 2); }
   switch (style) {
+    case "cardigan": p(trim, 14, 11, 6, 14); p(top, 16, 14, 2, 11); for (const y of [16, 20, 23]) p(trim, 16, y, 1, 1); p(trim, 8, 23, 6, 1); p(trim, 20, 23, 5, 1); break;
+    case "trench": p(top, 5, 12, 23, 17); p(trim, 11, 12, 3, 6); p(trim, 20, 12, 3, 6); p(trim, 6, 23, 21, 2); p("#60452f", 15, 23, 4, 2); for (const y of [19, 26]) { p(trim, 13, y, 1, 1); p(trim, 21, y, 1, 1); } break;
     case "tee": p(trim, 11, 12, 11, 1); break;
     case "hoodie": p(top, 5, 4, 3, 9); p(top, 25, 4, 3, 9); p(trim, 12, 12, 1, 5); p(trim, 21, 12, 1, 5); p(trim, 12, 21, 10, 2); break;
     case "jacket": p(trim, 16, 12, 2, 12); p(trim, 8, 23, 17, 2); break;

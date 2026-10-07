@@ -121,7 +121,7 @@ assert.equal(kitState.inventory[0].count, 1, 'Failed igloo transaction refunds t
 
 const presenceSource = main.slice(main.indexOf('async function updatePresence'), main.indexOf('async function completeBreak'));
 let sentPresence;
-const presenceState = { presenceRef: {}, gamePresenceRef: null, player: shooter, username: 'Test explorer', latestSnowball: state.latestSnowball, Date: { now: () => clock }, set: async (_ref, payload) => { sentPresence = payload; } };
+const presenceState = { presenceRef: {}, gamePresenceRef: null, player: shooter, username: 'Test explorer', latestSnowball: state.latestSnowball, inventoryMeta: {}, petFollower: null, Date: { now: () => clock }, set: async (_ref, payload) => { sentPresence = payload; } };
 vm.createContext(presenceState); vm.runInContext(presenceSource, presenceState);
 await presenceState.updatePresence();
 assert.equal(sentPresence.snowball.owner, 'shooter');

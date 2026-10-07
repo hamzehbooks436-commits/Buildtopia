@@ -45,5 +45,6 @@ assert.equal(npc.offers.test.requires.length,1);
 assert.deepEqual(normalizeNpc(JSON.parse(JSON.stringify(npc))),npc,'NPC definitions survive persistence');
 assert.equal(npcAtPoint({test:npc},{x:10*32+16,y:15*32+16})[0],'test');
 assert.equal(npcAtPoint({test:{...npc,enabled:false}},{x:10*32+16,y:15*32+16}),undefined);
-assert.throws(() => normalizeNpc({name:'Guide',x:128,y:15}), /inside/);
+assert.throws(() => normalizeNpc({name:'Guide',x:256,y:15}), /inside/);
+assert.equal(normalizeNpc({name:'Guide',x:255,y:15}).x,255);
 console.log('Admin identity, all tiles, unlimited grants, atomic multiple-item trades, payment-only info, free rewards, repeat/once receipts and persistence passed.');

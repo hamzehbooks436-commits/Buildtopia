@@ -33,6 +33,14 @@ function lines(value) {
   return [...totals].map(([itemId, amount]) => ({ itemId, amount }));
 }
 
+function anyLines(value) {
+  return Object.values(value ?? {}).map(line => {
+    const itemIds = [...new Set(line.itemIds ?? [])];
+    if (!itemIds.length || itemIds.some(id => !ITEM_DEFS[id])) throw new Error("Choose existing items for the alternative payment.");
+    return { itemIds, amount: quantity(line.amount), label: String(line.label ?? "items in any mix") };
+  });
+}
+
 export function normalizeNpc(raw) {
   const x = Number(raw.x), y = Number(raw.y);
   if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= WORLD_WIDTH || y >= WORLD_HEIGHT) throw new Error("Choose a tile inside the world.");
@@ -45,6 +53,7 @@ export function normalizeNpc(raw) {
     const label = String(offer.label ?? "").trim().slice(0, 80);
     if (!label) throw new Error("Give every action a button label.");
     offers[id] = { label, response: String(offer.response ?? "").slice(0, 2000), repeatable: offer.repeatable === true, requires: lines(offer.requires), rewards: lines(offer.rewards) };
+    if (offer.requiresAny) offers[id].requiresAny = anyLines(offer.requiresAny);
   }
   const outfitId = Object.hasOwn(NPC_OUTFIT_BY_ID, raw.outfitId) ? raw.outfitId : "casual-tee";
   return { name, x, y, dialogue: String(raw.dialogue ?? "").slice(0, 2000), skin: color(raw.skin, "#f1c598"), hair: color(raw.hair, "#543729"), outfitId, outfit: color(raw.outfit, NPC_OUTFIT_BY_ID[outfitId].top), hat: ["none", "cap", "crown"].includes(raw.hat) ? raw.hat : "none", enabled: raw.enabled !== false, offers };
@@ -57,9 +66,20 @@ export function applyNpcOffer(saved, offer, claimKey, requestId) {
   if (saved.lastNpcRequest === requestId) return saved;
   if (!offer.repeatable && saved.npcClaims?.[claimKey]) throw new Error("You already completed this action.");
   const requires = lines(offer.requires), rewards = lines(offer.rewards);
+  const alternatives = anyLines(offer.requiresAny);
   const next = { ...saved, slots: saved.slots.map(slot => slot ? { ...slot } : null), npcClaims: { ...(saved.npcClaims ?? {}) } };
   for (const line of requires) if (countItem(next.slots, line.itemId) < line.amount) throw new Error(`You need ${line.amount} ${ITEM_DEFS[line.itemId].name}.`);
   for (const line of requires) removeItem(next.slots, line.itemId, line.amount);
+  for (const line of alternatives) {
+    if (line.itemIds.reduce((sum, id) => sum + countItem(next.slots, id), 0) < line.amount) throw new Error(`You need ${line.amount} ${line.label}.`);
+    let remaining = line.amount;
+    for (const id of line.itemIds) {
+      const amount = Math.min(remaining, countItem(next.slots, id));
+      if (amount) removeItem(next.slots, id, amount);
+      remaining -= amount;
+      if (!remaining) break;
+    }
+  }
   for (const line of rewards) if (!addItem(next.slots, line.itemId, line.amount)) throw new Error("Make room in your inventory for all the rewards. Nothing was taken.");
   if (!offer.repeatable) next.npcClaims[claimKey] = true;
   next.lastNpcRequest = requestId;
@@ -68,7 +88,7 @@ export function applyNpcOffer(saved, offer, claimKey, requestId) {
 }
 
 export function npcAtPoint(npcs, point) {
-  return Object.entries(npcs).find(([, npc]) => npc.enabled && point.x >= npc.x * TILE_SIZE && point.x <= (npc.x + 1) * TILE_SIZE && point.y >= npc.y * TILE_SIZE - 12 && point.y <= (npc.y + 1) * TILE_SIZE);
+  return Object.entries(npcs).find(([, npc]) => npc.enabled && point.x >= npc.x * TILE_SIZE + (TILE_SIZE - 22) / 2 && point.x <= npc.x * TILE_SIZE + (TILE_SIZE + 22) / 2 && point.y >= npc.y * TILE_SIZE && point.y <= (npc.y + 1) * TILE_SIZE);
 }
 
 export function nearNpc(player, npc, reach) {
@@ -77,25 +97,24 @@ export function nearNpc(player, npc, reach) {
 
 export function drawNpc(ctx, npc, x, y, scale = 1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
-  ctx.fillStyle = "rgba(2,36,52,.25)"; ctx.fillRect(5, 29, 22, 4);
   drawNpcClothes(ctx, npc);
-  ctx.fillStyle = npc.skin; ctx.fillRect(8, -5, 17, 16);
-  ctx.fillStyle = npc.hair; ctx.fillRect(7, -7, 19, 5); ctx.fillRect(7, -3, 4, 6);
-  ctx.fillStyle = "#19344c"; ctx.fillRect(13, 1, 2, 3); ctx.fillRect(21, 1, 2, 3); ctx.fillRect(16, 7, 5, 1);
-  if (npc.hat === "cap") { ctx.fillStyle = npc.outfit; ctx.fillRect(6, -11, 21, 5); ctx.fillRect(19, -7, 12, 3); }
-  if (npc.hat === "crown") { ctx.fillStyle = "#ffe77a"; ctx.fillRect(7, -9, 19, 4); for (const xx of [7, 15, 23]) ctx.fillRect(xx, -14, 3, 6); }
+  ctx.fillStyle = npc.skin; ctx.fillRect(4, 5, 14, 10);
+  ctx.fillStyle = npc.hair; ctx.fillRect(4, 0, 14, 5);
+  ctx.fillStyle = "#19344c"; ctx.fillRect(7, 7, 2, 3); ctx.fillRect(14, 7, 2, 3); ctx.fillRect(9, 12, 5, 1);
+  if (npc.hat === "cap") { ctx.fillStyle = npc.outfit; ctx.fillRect(4, 0, 14, 4); ctx.fillRect(12, 3, 8, 2); }
+  if (npc.hat === "crown") { ctx.fillStyle = "#ffe77a"; ctx.fillRect(4, 3, 14, 2); for (const xx of [4, 10, 16]) ctx.fillRect(xx, 0, 2, 4); }
   ctx.restore();
 }
 
 export function drawNpcs(ctx, npcs, camera) {
   for (const npc of Object.values(npcs)) {
     if (!npc.enabled) continue;
-    const x = npc.x * TILE_SIZE - camera.x, y = npc.y * TILE_SIZE - camera.y;
+    const x = Math.round(npc.x * TILE_SIZE + (TILE_SIZE - 22) / 2 - camera.x), y = Math.round(npc.y * TILE_SIZE - camera.y);
     drawNpc(ctx, npc, x, y);
-    // Use the players' outlined floating name style, with space for NPC hats.
+    // Names share the player's center and spacing above the head.
     ctx.save(); ctx.font = "800 11px system-ui"; ctx.textAlign = "center";
     ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23, 13, 48, .78)";
-    ctx.strokeText(npc.name, x + 16, y - 20, 200);
-    ctx.fillStyle = "#fff3ad"; ctx.fillText(npc.name, x + 16, y - 20, 200); ctx.restore();
+    ctx.strokeText(npc.name, x + 11, y - 6, 200);
+    ctx.fillStyle = "#fff3ad"; ctx.fillText(npc.name, x + 11, y - 6, 200); ctx.restore();
   }
 }

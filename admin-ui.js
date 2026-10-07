@@ -3,7 +3,7 @@ import { ITEM_DEFS } from "./definitions.js";
 import { isAdminAccount } from "./admin.js";
 import { normalizeNpc, grantItems, applyNpcOffer, drawNpc, nearNpc, quantity } from "./npcs.js";
 import { drawItemIcon } from "./ui.js";
-import { REACH } from "./config.js";
+import { REACH, WORLD_WIDTH, WORLD_HEIGHT } from "./config.js";
 import { NPC_OUTFITS, NPC_OUTFIT_GROUPS, npcOutfit } from "./npc-outfits.js";
 
 const catalog = Object.entries(ITEM_DEFS).sort((a, b) => a[1].name.localeCompare(b[1].name));
@@ -12,13 +12,14 @@ function button(text, callback, className) { const el = node("button", text, cla
 function field(parent, label, input) { const el = node("label", label); el.append(input); parent.append(el); return input; }
 function input(type, value, maxLength) { const el = node("input"); el.type = type; el.value = value ?? ""; if (maxLength) el.maxLength = maxLength; return el; }
 function textArea(value) { const el = node("textarea"); el.value = value ?? ""; el.maxLength = 2000; el.rows = 3; return el; }
-function itemSelect(value = "rock") { const el = node("select"); for (const [id, def] of catalog) { const option = node("option", def.name); option.value = id; el.append(option); } el.value = value; return el; }
+function itemSelect(value = "rock", entries = catalog) { const el = node("select"); for (const [id, def] of entries) { const option = node("option", def.name); option.value = id; el.append(option); } el.value = value; return el; }
 function numberInput(value) { const el = input("number", value); el.min = "1"; el.step = "1"; el.required = true; return el; }
-function itemsLabel(lines) { return Object.values(lines ?? {}).map(line => `${line.amount.toLocaleString()} ${ITEM_DEFS[line.itemId]?.name ?? line.itemId}`).join(", ") || "Nothing"; }
+function itemsLabel(lines, alternatives = []) { return [...Object.values(lines ?? {}).map(line => `${line.amount.toLocaleString()} ${ITEM_DEFS[line.itemId]?.name ?? line.itemId}`), ...Object.values(alternatives).map(line => `${line.amount} ${line.label}`)].join(", ") || "Nothing"; }
 
 export function createAdminTools(game) {
   const admin = isAdminAccount(game.user, game.localMode);
   let npcs = {}, activeNpcId = null, editingId = null, placing = false, busy = false, offerRows = [];
+  const allNpcs = () => ({ ...npcs, ...(game.getWorld().familyNpcs ?? {}) });
   const panels = [];
   const root = document.querySelector(".game-shell");
   const npcRef = game.localMode ? null : ref(game.database, `worlds/${game.worldKey}/npcs`);
@@ -49,6 +50,7 @@ export function createAdminTools(game) {
     if (!admin || busy) return;
     try {
       const itemId = itemChoice.value, qty = quantity(amount.value);
+      if (ITEM_DEFS[itemId]?.npcOnly) throw new Error("This item is distributed only through NPC rewards.");
       busy = true;
       await game.changeInventory(saved => { const slots = grantItems(saved.slots, itemId, qty); return { ...saved, slots, size: Math.max(saved.size, slots.length) }; });
       statusText(status, `Added ${qty.toLocaleString()} ${ITEM_DEFS[itemId].name}. No gems spent.`);
@@ -79,14 +81,14 @@ export function createAdminTools(game) {
     const ctx = preview.getContext("2d"); ctx.clearRect(0, 0, preview.width, preview.height); ctx.imageSmoothingEnabled = false;
     ctx.font = "800 11px system-ui"; ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23,13,48,.78)";
     const label = name.value.trim() || "Your NPC"; ctx.strokeText(label, 72, 16, 136); ctx.fillStyle = "#fff3ad"; ctx.fillText(label, 72, 16, 136);
-    drawNpc(ctx, previewAppearance(), 22, 60, 3);
+    drawNpc(ctx, previewAppearance(), (preview.width - 22 * 3) / 2, 36, 3);
     const selected = npcOutfit(outfitChoice.value);
     outfitDescription.textContent = `${selected.name} · ${NPC_OUTFIT_GROUPS.find(group => group.id === selected.group).name} outfit`;
     for (const card of outfitGallery.children) {
       const chosen = card.dataset.outfitId === outfitChoice.value;
       card.setAttribute("aria-pressed", String(chosen));
       const thumb = card.querySelector("canvas"), thumbCtx = thumb.getContext("2d"); thumbCtx.clearRect(0, 0, thumb.width, thumb.height); thumbCtx.imageSmoothingEnabled = false;
-      drawNpc(thumbCtx, { ...previewAppearance(), outfitId: card.dataset.outfitId, outfit: chosen ? outfit.value : npcOutfit(card.dataset.outfitId).top }, 8, 25, 1.4);
+      drawNpc(thumbCtx, { ...previewAppearance(), outfitId: card.dataset.outfitId, outfit: chosen ? outfit.value : npcOutfit(card.dataset.outfitId).top }, (thumb.width - 22 * 1.4) / 2, 14, 1.4);
     }
   }
   function chooseOutfit(id) {
@@ -134,7 +136,7 @@ export function createAdminTools(game) {
     await saveNpc({ preventDefault() {} });
   }
   function renderTalk() {
-    const npc = npcs[activeNpcId];
+    const npc = allNpcs()[activeNpcId];
     if (!npc?.enabled) { if (activeNpcId) { busy = false; close(); game.notify("This NPC is no longer available."); } return; }
     talkName.textContent = npc.name; talkText.textContent = npc.dialogue || "Hello, explorer!"; talkActions.replaceChildren();
     for (const [offerId, offer] of Object.entries(npc.offers ?? {})) {
@@ -144,16 +146,16 @@ export function createAdminTools(game) {
       const claimed = !offer.repeatable && game.getInventorySave().npcClaims?.[claimKey];
       action.disabled = busy || claimed;
       if (claimed) action.textContent = `${offer.label} · Completed`;
-      row.append(action, node("p", `You give: ${itemsLabel(offer.requires)}`), node("p", `You receive: ${itemsLabel(offer.rewards)} · ${offer.repeatable ? "Repeatable" : "Once per player"}`)); talkActions.append(row);
+      row.append(action, node("p", `You give: ${itemsLabel(offer.requires, offer.requiresAny)}`), node("p", `You receive: ${itemsLabel(offer.rewards)} · ${offer.repeatable ? "Repeatable" : "Once per player"}`)); talkActions.append(row);
     }
-    if (admin) talkActions.append(button("Edit this NPC", () => openEditor(activeNpcId), "secondary-button"));
+    if (admin && !npc.fixed) talkActions.append(button("Edit this NPC", () => openEditor(activeNpcId), "secondary-button"));
   }
   async function performOffer(offerId) {
     if (busy) return;
     const npcId = activeNpcId;
     try {
       busy = true; renderTalk();
-      const npc = (await get(ref(game.database, `worlds/${game.worldKey}/npcs/${npcId}`))).val();
+      const npc = game.getWorld().familyNpcs?.[npcId] ?? (game.localMode ? npcs[npcId] : (await get(ref(game.database, `worlds/${game.worldKey}/npcs/${npcId}`))).val());
       const offer = npc?.offers?.[offerId];
       if (!npc?.enabled || !offer) throw new Error("This action is no longer available.");
       if (!nearNpc(game.getPlayer(), npc, REACH)) throw new Error("Move closer to this NPC first.");
@@ -167,17 +169,17 @@ export function createAdminTools(game) {
     market = panel("Admin · Blocks & NPCs"); market.id = "admin-market";
     market.append(node("p", "Take any item for free. Choose any whole quantity; admin stacks and bag space expand automatically."));
     const form = node("form", null, "panel-form"); search = field(form, "Search items", input("search", ""));
-    itemChoice = field(form, "Item / block", itemSelect()); amount = field(form, "Quantity", numberInput(1));
+    itemChoice = field(form, "Item / block", itemSelect("rock", catalog.filter(([, def]) => !def.npcOnly))); amount = field(form, "Quantity", numberInput(1));
     icon = node("canvas"); icon.width = icon.height = 48; icon.setAttribute("aria-label", "Selected item preview");
     const grantButton = node("button", "Get items (free)"); grantButton.type = "submit"; form.append(icon, grantButton); market.append(form);
     status = node("p", null, "status-message"); status.setAttribute("aria-live", "polite"); market.append(status);
     form.addEventListener("submit", event => { event.preventDefault(); grant(); }); itemChoice.addEventListener("change", paintPreview);
-    search.addEventListener("input", () => { const previous = itemChoice.value; itemChoice.replaceChildren(); for (const [id, def] of catalog.filter(([id, def]) => `${def.name} ${id}`.toLowerCase().includes(search.value.toLowerCase()))) { const option = node("option", def.name); option.value = id; itemChoice.append(option); } if ([...itemChoice.options].some(o => o.value === previous)) itemChoice.value = previous; icon.getContext("2d").clearRect(0, 0, 48, 48); if (itemChoice.value) paintPreview(); grantButton.disabled = !itemChoice.value; });
+    search.addEventListener("input", () => { const previous = itemChoice.value; itemChoice.replaceChildren(); for (const [id, def] of catalog.filter(([id, def]) => !def.npcOnly && `${def.name} ${id}`.toLowerCase().includes(search.value.toLowerCase()))) { const option = node("option", def.name); option.value = id; itemChoice.append(option); } if ([...itemChoice.options].some(o => o.value === previous)) itemChoice.value = previous; icon.getContext("2d").clearRect(0, 0, 48, 48); if (itemChoice.value) paintPreview(); grantButton.disabled = !itemChoice.value; });
     market.append(node("h3", "NPCs in this world"), button("+ Place NPC", () => { close(); placing = true; game.notify("Tap a clear tile in the world to place your NPC. Escape cancels."); })); list = node("div", null, "npc-list"); market.append(list);
     editor = panel("Customize NPC"); editor.id = "npc-editor";
     const editorForm = node("form", null, "panel-form"); name = field(editorForm, "Custom name (shown above the NPC)", input("text", "", 40)); name.required = true; name.placeholder = "Give your NPC a player-style name";
     dialogue = field(editorForm, "Greeting / dialogue", textArea());
-    const coords = node("div", null, "npc-coordinates"); x = field(coords, "Tile X", input("number", 0)); y = field(coords, "Tile Y", input("number", 0)); x.min = y.min = 0; x.max = 127; y.max = 71; x.step = y.step = 1; editorForm.append(coords);
+    const coords = node("div", null, "npc-coordinates"); x = field(coords, "Tile X", input("number", 0)); y = field(coords, "Tile Y", input("number", 0)); x.min = y.min = 0; x.max = WORLD_WIDTH - 1; y.max = WORLD_HEIGHT - 1; x.step = y.step = 1; editorForm.append(coords);
     editorForm.append(node("h3", "Appearance & wardrobe"));
     const appearance = node("div", null, "npc-appearance"); skin = field(appearance, "Skin colour", input("color", "#f1c598")); hair = field(appearance, "Hair colour", input("color", "#543729")); outfit = field(appearance, "Outfit colour", input("color", "#8df0a4"));
     hat = node("select"); for (const text of ["none", "cap", "crown"]) { const option = node("option", text); option.value = text; hat.append(option); } field(appearance, "Hat", hat); editorForm.append(appearance);
@@ -187,7 +189,7 @@ export function createAdminTools(game) {
       for (const clothing of NPC_OUTFITS.filter(entry => entry.group === group.id)) { const option = node("option", clothing.name); option.value = clothing.id; options.append(option); }
       outfitChoice.append(options);
     }
-    field(editorForm, "Outfit (35 styles)", outfitChoice); outfitChoice.addEventListener("change", () => chooseOutfit(outfitChoice.value));
+    field(editorForm, `Outfit (${NPC_OUTFITS.length} styles)`, outfitChoice); outfitChoice.addEventListener("change", () => chooseOutfit(outfitChoice.value));
     const previewRow = node("div", null, "npc-preview-row"); preview = node("canvas"); preview.width = 144; preview.height = 160; preview.setAttribute("aria-label", "NPC appearance and custom name preview");
     const previewCopy = node("div"); outfitDescription = node("strong"); previewCopy.append(outfitDescription, node("p", "Choose a style below or from the outfit list. Hair, skin and outfit colours can be changed independently.")); previewRow.append(preview, previewCopy); editorForm.append(previewRow);
     outfitGroup = node("select"); for (const group of NPC_OUTFIT_GROUPS) { const option = node("option", `${group.name} (${group.count})`); option.value = group.id; outfitGroup.append(option); } field(editorForm, "Browse wardrobe", outfitGroup);
@@ -205,13 +207,13 @@ export function createAdminTools(game) {
     npcs = next; if (admin) renderList(); if (activeNpcId) renderTalk();
   }, () => game.notify("Could not load NPCs. Check your connection."));
   return {
-    admin, isOpen, close, getNpcs: () => npcs,
+    admin, isOpen, close, getNpcs: allNpcs,
     openMarket() { if (admin) { renderList(); show(market); } },
     cancelPlacement() { placing = false; },
     handlePlacement(target) { if (!placing || !admin) return false; if (!target.inBounds) return true; try { locationValid(target, null); openEditor(null, target); } catch (error) { game.notify(error.message); } return true; },
     interact(id, edit = false) {
-      const npc = npcs[id]; if (!npc) return;
-      if (admin && edit) { openEditor(id); return; }
+      const npc = allNpcs()[id]; if (!npc) return;
+      if (admin && edit && !npc.fixed) { openEditor(id); return; }
       if (!nearNpc(game.getPlayer(), npc, REACH)) { game.notify("Move closer to this NPC to talk."); return; }
       activeNpcId = id; talkResponse.textContent = ""; talkStatus.textContent = ""; show(talk); renderTalk();
     },

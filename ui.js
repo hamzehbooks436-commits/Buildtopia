@@ -1,7 +1,10 @@
+import { CLOTHING_OFFERS, wardrobeState } from "./wardrobe.js";
+import { drawNpcClothes, NPC_OUTFIT_GROUPS } from "./npc-outfits.js";
 import { HOTBAR_SIZE, TILE_SIZE } from "./config.js";
 import { ITEM_DEFS, SHOP_ITEMS, SHOP_SECTIONS, TILE_DEFS } from "./definitions.js";
 import { countItem } from "./inventory.js";
 import { winterWeather } from "./winter.js";
+import { drawGhost, petState } from "./ghosts.js";
 
 function roundedRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
@@ -28,6 +31,7 @@ export function drawItemIcon(ctx, assets, itemId, x, y, size) {
 }
 
 export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
+  if (worldType === "autumn") { drawAutumnSky(ctx, camera, width, height); return; }
   if (worldType === "ice") { drawWinterSky(ctx, assets, camera, width, height); return; }
   const image = worldType === "beach" ? assets.sunsetSky : assets.sky;
   const scale = Math.max(width / image.width, height / image.height);
@@ -38,6 +42,45 @@ export function drawSky(ctx, assets, camera, width, height, worldType = "sky") {
   ctx.drawImage(image, offset + drawWidth, 0, drawWidth, drawHeight);
   ctx.fillStyle = "rgba(5, 91, 121, .1)";
   ctx.fillRect(0, 0, width, height);
+}
+
+function drawAutumnSky(ctx, camera, width, height) {
+  ctx.save();
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, "#656b7a"); sky.addColorStop(.55, "#a5a0a0"); sky.addColorStop(1, "#dfb88c");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+  const seconds = Date.now() / 1000;
+  for (let layer = 0; layer < 3; layer++) {
+    ctx.fillStyle = ["#747986", "#93939b", "#bab4af"][layer];
+    const span = 340 + layer * 110;
+    const drift = (seconds * (3 + layer) - camera.x * .04) % span;
+    for (let i = -2; i < Math.ceil(width / span) + 2; i++) {
+      const x = i * span + drift, y = height * (.08 + layer * .12) + Math.sin(i * 2 + layer) * 18;
+      ctx.beginPath(); ctx.ellipse(x + span / 2, y + 22, span * .68, height * .13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + span * .35, y - 6, span * .25, height * .09, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  for (let layer = 0; layer < 2; layer++) {
+    ctx.fillStyle = layer ? "#a37b5b" : "#b99a7e";
+    ctx.beginPath(); ctx.moveTo(0, height);
+    for (let x = 0; x <= width + 40; x += 40) ctx.lineTo(x, height * (.81 + layer * .12) + Math.sin((x + camera.x * .12) / 120 + layer) * 24);
+    ctx.lineTo(width, height); ctx.fill();
+  }
+  ctx.restore();
+}
+
+export function drawAutumnAtmosphere(ctx, world, camera, width, height) {
+  if (world.worldType !== "autumn") return;
+  ctx.save();
+  const now = Date.now() / 1000;
+  for (let i = 0; i < 24; i++) {
+    const x = ((i * 173 + now * (10 + i % 4) - camera.x * .35) % (width + 40) + width + 40) % (width + 40) - 20;
+    const y = ((i * 97 + now * (14 + i % 7) - camera.y * .12) % (height + 30) + height + 30) % (height + 30) - 15;
+    ctx.fillStyle = ["#efbb59", "#d77543", "#b74e43"][i % 3];
+    ctx.globalAlpha = .6;
+    ctx.fillRect(x + Math.sin(now + i) * 15, y, i % 2 ? 5 : 3, 2);
+  }
+  ctx.restore();
 }
 
 function drawWinterSky(ctx, assets, camera, width, height) {
@@ -160,6 +203,44 @@ export function drawTile(ctx, assets, tileId, x, y, size = TILE_SIZE, background
   ctx.restore();
 }
 
+export function drawWorldLighting(ctx, world, camera, viewWidth, viewHeight) {
+  const left = Math.max(0, Math.floor(camera.x / TILE_SIZE));
+  const top = Math.max(0, Math.floor(camera.y / TILE_SIZE));
+  const right = Math.min(world.width, Math.ceil((camera.x + viewWidth) / TILE_SIZE));
+  const bottom = Math.min(world.height, Math.ceil((camera.y + viewHeight) / TILE_SIZE));
+  const lights = [];
+  // Include nearby off-screen torches so light stays continuous while scrolling.
+  for (let y = Math.max(0, top - 5); y < Math.min(world.height, bottom + 5); y++) {
+    for (let x = Math.max(0, left - 5); x < Math.min(world.width, right + 5); x++) {
+      const radius = TILE_DEFS[world.get(x, y)]?.lightRadius;
+      if (radius) lights.push({ x, y, radius });
+    }
+  }
+  ctx.save();
+  for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) {
+    const depth = y - world.surface[x];
+    const darkness = Math.max(0, Math.min(.72, depth * .085));
+    if (!darkness) continue;
+    let illumination = 0;
+    for (const light of lights) illumination = Math.max(illumination, Math.max(0, 1 - Math.hypot(x - light.x, y - light.y) / light.radius));
+    ctx.fillStyle = `rgba(8, 16, 30, ${darkness * (1 - illumination)})`;
+    ctx.fillRect(x * TILE_SIZE - camera.x, y * TILE_SIZE - camera.y, TILE_SIZE, TILE_SIZE);
+  }
+  ctx.globalCompositeOperation = "screen";
+  for (const light of lights) {
+    const x = (light.x + .5) * TILE_SIZE - camera.x;
+    const y = (light.y + .3) * TILE_SIZE - camera.y;
+    const radius = light.radius * TILE_SIZE;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    glow.addColorStop(0, "rgba(255, 204, 89, .34)");
+    glow.addColorStop(.35, "rgba(255, 163, 60, .12)");
+    glow.addColorStop(1, "rgba(255, 163, 60, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  ctx.restore();
+}
+
 export function drawWinterActivities(ctx, assets, activities, camera) {
   const now = Date.now();
   ctx.save();
@@ -213,6 +294,7 @@ export function drawPlayer(ctx, player, camera, name = "", remote = false) {
   pixel("#d59481", 4, 12, 14, 3);
   pixel("#f8d5b3", 6, 5, 10, 6);
   pixel("#25213c", player.facing > 0 ? 14 : 6, 7, 2, 3);
+  if (!player.outfitId) {
   pixel(remote ? "#2d6b8c" : "#087da1", 2, 15, 18, 11);
   pixel(remote ? "#8dd1db" : "#62dc8a", 4, 16, 14, 2);
   pixel("#f2c1aa", 0, 20, 3, 6);
@@ -221,6 +303,8 @@ export function drawPlayer(ctx, player, camera, name = "", remote = false) {
   pixel("#312b4b", 12, 26, 6, 4);
   pixel("#241e35", 2, 30, 8, 2);
   pixel("#241e35", 12, 30, 8, 2);
+  }
+  if (player.outfitId) drawNpcClothes(ctx, { outfitId: player.outfitId, skin: "#f2c1aa" });
   ctx.restore();
   if (name) {
     ctx.font = "800 11px system-ui";
@@ -414,10 +498,21 @@ export function drawHud(ctx, assets, state, width) {
   ctx.restore();
 }
 
-export function drawShop(ctx, assets, inventory, width, height, sectionId = null, admin = false) {
-  const section = SHOP_SECTIONS.find((entry) => entry.id === sectionId);
-  const sections = admin ? [...SHOP_SECTIONS, { id: "admin", name: "Admin · Blocks & NPCs", icon: "world_lock", description: "Any item, any quantity · NPC editor" }] : SHOP_SECTIONS;
-  const entries = section ? SHOP_ITEMS.filter((offer) => section.items.includes(offer.item)) : sections;
+export function drawShop(ctx, assets, inventory, width, height, sectionId = null, admin = false, savedWardrobe = {}, page = 0) {
+  const clothingSection = { id: "clothes", name: "Clothes", icon: "wrench", description: "42 outfits · captured pets · equip" };
+  const clothing = sectionId === "clothes";
+  const petView = sectionId === "clothes-pets";
+  const wardrobe = wardrobeState(savedWardrobe);
+  const pets = petState(savedWardrobe);
+  const petEntries = Object.entries(pets.ghostPets).map(([petId, pet]) => ({ ...pet, petId }));
+  const section = petView ? { id: "clothes-pets", name: "Clothes · Pets" } : clothing ? clothingSection : SHOP_SECTIONS.find((entry) => entry.id === sectionId);
+  let sections = admin ? [...SHOP_SECTIONS, { id: "admin", name: "Admin · Blocks & NPCs", icon: "world_lock", description: "Any item, any quantity · NPC editor" }] : SHOP_SECTIONS;
+  sections = [...sections, clothingSection];
+  const allClothes = [...CLOTHING_OFFERS].sort((a, b) => Number(b.group === "autumn") - Number(a.group === "autumn"));
+  const pageSize = width < 560 ? 3 : 6;
+  const pageCount = Math.max(1, Math.ceil((petView ? petEntries.length : allClothes.length) / pageSize));
+  page = Math.max(0, Math.min(pageCount - 1, page));
+  const entries = petView ? (petEntries.length ? petEntries.slice(page * pageSize, (page + 1) * pageSize) : [{ empty: true }]) : clothing ? allClothes.slice(page * pageSize, (page + 1) * pageSize) : section ? SHOP_ITEMS.filter((offer) => section.items.includes(offer.item)) : sections;
   const columns = width < 560 ? 1 : 2;
   ctx.fillStyle = "rgba(1, 30, 43, .62)";
   ctx.fillRect(0, 0, width, height);
@@ -425,7 +520,7 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
   const rows = Math.ceil(entries.length / columns);
   const cardHeight = entries.some((entry) => entry.rewards) ? 116 : 75;
   const rowStep = cardHeight + 18;
-  const panelHeight = 145 + (rows - 1) * rowStep + cardHeight + 24;
+  const panelHeight = 145 + (rows - 1) * rowStep + cardHeight + (clothing || petView ? 106 : 24);
   // Fit all offers on small displays; hit testing uses the same transform.
   const scale = Math.min(1, Math.max(1, height - 32) / panelHeight);
   const x = (width - panelWidth) / 2;
@@ -448,7 +543,7 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
   ctx.fillStyle = "#c9eaf0";
   ctx.font = "600 13px system-ui";
   ctx.fillText(`You have ${countItem(inventory, "gems")} Sky Gems`, x + 28, y + 68);
-  ctx.fillText(section ? "Choose an item to buy." : "Open a section to browse its items.", x + 28, y + 88);
+  ctx.fillText(petView ? "Your captured pets · choose one to follow you for free." : clothing ? "Outfits cost 150 gems · open Pets for your companions." : section ? "Choose an item to buy." : "Open a section to browse its items.", x + 28, y + 88, panelWidth - 56);
 
   const buttons = [];
   function button(label, bx, by, bw, action) {
@@ -464,6 +559,21 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
   }
   button("Close", x + panelWidth - 82, y + 18, 64, { kind: "close" });
   if (section) button("‹ All sections", x + 18, y + 102, 125, { kind: "back" });
+  if (clothing || petView) {
+    const footerY = y + panelHeight - 76;
+    if (clothing) {
+      button("Original clothes", x + 18, footerY, 125, { kind: "clothing", outfitId: null });
+      button(`Pets (${petEntries.length})`, x + panelWidth - 150, footerY, 132, { kind: "section", sectionId: "clothes-pets" });
+    } else {
+      button("‹ Outfits", x + 18, footerY, 125, { kind: "section", sectionId: "clothes" });
+      button("Dismiss pet", x + panelWidth - 150, footerY, 132, { kind: "pet", petId: null });
+    }
+    button("‹ Prev", x + 18, footerY + 38, 64, { kind: "page", page: Math.max(0, page - 1) });
+    button("Next ›", x + panelWidth - 82, footerY + 38, 64, { kind: "page", page: Math.min(pageCount - 1, page + 1) });
+    ctx.fillStyle = "#c9eaf0"; ctx.textAlign = "center"; ctx.font = "600 12px system-ui";
+    ctx.fillText(`${page + 1} / ${pageCount}`, x + panelWidth / 2, footerY + 59);
+    ctx.textAlign = "left";
+  }
   const cardWidth = (panelWidth - 36 - (columns - 1) * 18) / columns;
   const cards = [];
 
@@ -472,10 +582,31 @@ export function drawShop(ctx, assets, inventory, width, height, sectionId = null
     const row = Math.floor(index / columns);
     const cardX = x + 18 + col * (cardWidth + 18);
     const cardY = y + 145 + row * rowStep;
-    cards.push({ x: cardX, y: cardY, width: cardWidth, height: cardHeight, action: section ? { kind: "buy", offer } : { kind: "section", sectionId: offer.id } });
+    cards.push({ x: cardX, y: cardY, width: cardWidth, height: cardHeight, action: petView ? (offer.empty ? { kind: "none" } : { kind: "pet", petId: offer.petId }) : clothing ? { kind: "clothing", outfitId: offer.outfitId } : section ? { kind: "buy", offer } : { kind: "section", sectionId: offer.id } });
     ctx.fillStyle = "#06435a";
     roundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 14);
     ctx.fill();
+    if (petView) {
+      if (!offer.empty) drawGhost(ctx, { x: cardX + 36, y: cardY + 35, variant: offer.variant }, { x: 0, y: 0 }, true);
+      ctx.fillStyle = "#fff"; ctx.font = "800 14px system-ui";
+      ctx.fillText(offer.empty ? "No pets caught yet" : offer.name, cardX + 68, cardY + 25, cardWidth - 78);
+      ctx.fillStyle = "#c9eaf0"; ctx.font = "600 11px system-ui";
+      ctx.fillText(offer.empty ? "Catch one with a Ghost Buster." : "Ghost companion · yours forever", cardX + 68, cardY + 42, cardWidth - 78);
+      ctx.fillStyle = "#ffe77a"; ctx.font = "700 12px system-ui";
+      ctx.fillText(offer.empty ? "Find ghosts in autumn worlds" : pets.equippedGhost === offer.petId ? "Following ✓" : "Click to follow · free", cardX + 68, cardY + 61, cardWidth - 78);
+      return;
+    }
+    if (clothing) {
+      drawPlayer(ctx, { x: cardX + 18, y: cardY + 7, width: 33, height: 48, facing: 1, outfitId: offer.outfitId }, { x: 0, y: 0 });
+      ctx.fillStyle = "#fff"; ctx.font = "800 14px system-ui";
+      ctx.fillText(offer.name, cardX + 68, cardY + 23, cardWidth - 78);
+      ctx.fillStyle = "#c9eaf0"; ctx.font = "600 11px system-ui";
+      ctx.fillText(NPC_OUTFIT_GROUPS.find(group => group.id === offer.group)?.name ?? offer.group, cardX + 68, cardY + 39);
+      ctx.fillStyle = "#ffe77a"; ctx.font = "700 12px system-ui";
+      const owned = wardrobe.ownedOutfits[offer.outfitId];
+      ctx.fillText(wardrobe.equippedOutfit === offer.outfitId ? "Equipped ✓" : owned ? "Owned · click to equip" : "150 gems · buy & equip", cardX + 68, cardY + 60, cardWidth - 78);
+      return;
+    }
     if (!section) {
       drawItemIcon(ctx, assets, offer.icon, cardX + 12, cardY + 14, 46);
       ctx.fillStyle = "#fff";

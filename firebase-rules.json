@@ -37,7 +37,7 @@
           "$npc": {
             ".validate": "newData.hasChildren(['name', 'x', 'y', 'enabled'])",
             "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
-            "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 128 && newData.val() % 1 == 0" },
+            "x": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 256 && newData.val() % 1 == 0" },
             "y": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 72 && newData.val() % 1 == 0" },
             "enabled": { ".validate": "newData.isBoolean()" }
           }

@@ -60,6 +60,19 @@ Validation: run `node --test tests/*.test.mjs`. `firebase.json` configures only 
 
 World names beginning with `beach` generate tropical terrain with sand, palms, coconuts, swimmable water, and a sunset sky. Hold jump to swim upward. Hold jump while touching a Ladder to climb at a steady pace. Walking over a Checkpoint changes your respawn point.
 
+## Autumn worlds
+
+Create a **new** world beginning with **autumn** or **fall**, such as `autumn-forest` or `fall-village`. Existing saves retain their terrain. Worlds are now **256 × 72 blocks**, twice their original area. Autumn maps have a heavily clouded sky, drifting leaves, nearly flat orange ground, sparse one-block yellow/orange/red trees, a cabin, a pumpkin patch, a harvest stall, and a protected family house. Ponds and floating structure labels have been removed. Older 128-wide saves expand without shifting player builds; untouched generated autumn terrain is upgraded to the sparse layout.
+
+- **Pumpkin:** found around the forest and pumpkin patches. Mining returns a Pumpkin and has a **50% chance of one Pumpkin Crop**. Plant the crop to grow a Pumpkin Plant in 45 seconds; harvest for 1–3 pumpkins and a 50% chance of one crop.
+- **Pumpkin Crop + Torch Crop → Jack'o Lantern Crop:** splice on the same tile in either order before either grows. The result grows in 60 seconds. Harvest for 1–3 Jack'o Lanterns and a 50% chance of one crop. Placed lanterns light nearby tiles.
+- **Leaves Batch Block:** no crop. Every real hour, autumn worlds replenish leaf batches up to **five on the map**, counting placed batches too. The clock persists through saves; occupied tiles and buildings are preserved.
+- **Wood Background:** every tree type drops two walls. Place these in the background and build or walk in front of them. On desktop, hold click on a wall with empty foreground to mine it. On touch devices, select an empty slot or Pickaxe and hold the wall. Hay Bales, Rustic Fences, Cabin Roofs, Harvest Crates, and Forest Mushrooms can also be collected from generated places and reused.
+- **Ghost pets:** select a **Ghost Buster**, click/tap a ghost within four tiles, or press **E** near one. A captured ghost becomes your saved pet and follows you across worlds. Open **Sky Market → Clothes → Pets** to choose a follower or dismiss it. Pets also appear in **Sky Market → Clothes → Pets**, where equipping and dismissing are free. One ghost starts in an autumn world; **one more spawns each real hour, up to two uncaught ghosts**. The saved clock prevents reloads or missed hours from spawning a crowd. Online players can see each other's followers. World claims persist before pet saving and automatically recover after a failed save or on re-entry.
+- **Ghost Buster distribution:** only through NPC rewards configured by the admin. In your NPC editor, add **Ghost Buster** under **NPC gives**. It has no shop offer, crafting recipe, starter grant, natural drop, or free-admin-catalogue entry. The generated family does not distribute this tool. Autumn crops are excluded from random seed packages.
+
+The family house, including its walls, background, foundation and doorways, is protected against mining and building. **Mara** trades 10 Pumpkins for 50 Sky Gems; **Rowan** trades 5 Forest Mushrooms for 20 Sky Gems; **Elias** trades 20 Autumn Trees in any colour mix for one Pickaxe. All three trades are repeatable and preserve payment on insufficient funds or bag space. Harvesting autumn trees now also gives the tree itself for collection, replanting or trading. Family NPCs work in local and online worlds and are kept separate from admin-created NPCs.
+
 ## Winter worlds
 
 Create a new world whose name starts with **ice** or **snow**, such as `ice-kingdom` or `snow-valley`. Existing worlds keep their saved terrain. Winter worlds contain mineable Snow Blocks, snowy pines that drop wood, and a wide frozen lake made from slippery Ice Blocks.
@@ -86,6 +99,13 @@ In **Sky Market → Building Blocks**, buy the **Parkour Package** for **1,500 g
 - **Spike Block**: touching it immediately returns you to your activated checkpoint, or the world spawn if you have none.
 
 ## Seed splicing
+
+Normal worlds have surface trees and exactly **40 underground Coal deposits** when first generated. Existing normal saves receive the resources once, replacing only underground Rock and using empty surface tiles; mined deposits never refill automatically.
+
+- Trees give **1–3 Wood Blocks** and have a **50% chance of one Wood Crop** (never more than one).
+- Breaking a Wood Block returns the block, plus independent **50% chances** of **one Wood Crop** and **one gem**.
+- Mining Coal gives one Coal block and one Coal Crop. Plant a Wood Crop to grow a tree in 30 seconds, or a Coal Crop to grow a coal plant in 60 seconds.
+- **Wood Crop + Coal Crop → Torch Crop**: plant either crop and place the other on the same tile before it grows. The Torch Crop grows in **45 seconds** into a Torch Plant. Harvest it for **1–3 torches** and a **50% chance of one Torch Crop**. Place torches to light ground within five tiles; mine them to relocate them. Underground ground becomes darker with depth, making torch light useful.
 
 Plant one seed, then select the second seed and tap, use **E**, or right click the exact same tile before the first seed grows. Either order works. Both seeds become one new planted seed with a fresh growth timer. Mine it before it grows to collect the resulting seed, or let it grow and harvest the crop. The in-game **Recipes** panel lists every available combination.
 

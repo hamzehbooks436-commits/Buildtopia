@@ -23,28 +23,6 @@ On iPad and other touch devices, movement and jump buttons appear automatically.
 
 Sky Market opens a section menu: **Seeds & Growing**, **Building Blocks**, and **Tools & Upgrades**. Tap a section to open its own shop view. Use **All sections** or Escape to go back; **Close** exits the market.
 
-## Admin blocks and NPCs
-
-Log in with the **admin** username and the password you requested. This account has been created in Firebase Authentication, its username/profile are provisioned, and the NPC rules have been published to `buildtopia-f6b73`. Signing in switches a previous local-play session back to online play.
-
-Only this account sees **Sky Market → Admin · Blocks & NPCs**. Search the complete item catalogue, enter a positive whole quantity and choose **Get items (free)**. All terrain tiles, decorative tiles, seeds, tools and gems are included. Admin stacks can exceed 999 and its inventory expands when needed; quantities and items persist across worlds and reloads.
-
-To add an NPC, choose **+ Place NPC**, then tap a clear tile. Give it a custom name displayed above its head in the same outlined style as players. Choose its hair colour, skin colour, outfit colour, hat and position. The wardrobe contains **35 distinct outfits: 20 normal, 7 winter and 8 summer**, with a grouped selector, clickable outfit thumbnails and a live name/appearance preview. Existing NPC names and colours are preserved; older NPCs default to the Casual T-shirt until you choose a new outfit. The selected outfit is saved with the NPC and shared with other players. Choose **+ Add action / trade** to add as many actions as needed. Each action has:
-
-- A button label and the NPC's response after completion.
-- Any combination of items and quantities in **Player gives** and **NPC gives**, including Sky Gems.
-- **Allow this action repeatedly**, or a one-time completion saved per player.
-
-Empty payment means a free conversation or reward. Empty rewards means dialogue/information, optionally unlocked by giving items. Payments and rewards are applied together in one inventory transaction; missing payment or insufficient bag space changes nothing. NPC settings are shared immediately with online players and persist in their world.
-
-Players tap a nearby NPC to talk or trade. The admin can use the Wrench on an NPC to edit it, or use **Edit** in the admin category to manage it from anywhere in that world. **Hide NPC** preserves its settings for later reactivation. Escape closes the editor or cancels placement.
-
-Admin identity is the Firebase UID in `admin.js`; display names, editable profiles, browser flags and local mode cannot grant this role. Database rules restrict writes to `worlds/<world>/npcs` to that UID, with no parent world write that would override the restriction. The existing game inventory remains client-managed; these changes protect NPC configuration rather than implementing a separate authoritative anti-cheat economy.
-
-Validation: run `node --test tests/*.test.mjs`. `firebase.json` configures only the database rules; `firebase deploy --only database --project buildtopia-f6b73` publishes them without changing website hosting. The live permission verification script in `artifacts/verify-admin-live.mjs` reads the requested password from `BUILDTOPIA_ADMIN_PASSWORD`, creates a temporary test account, checks allowed/denied access, and removes its test account/NPC afterward. It does not save passwords or tokens.
-
-World names beginning with `beach` generate tropical terrain with sand, palms, coconuts, swimmable water, and a sunset sky. Hold jump to swim upward. Hold jump while touching a Ladder to climb at a steady pace. Walking over a Checkpoint changes your respawn point.
-
 ## Autumn worlds
 
 Autumn worlds follow a shared 12-minute day/night cycle: eight minutes of daylight and four minutes of night, with warm dusk and dawn transitions, a moon and stars behind drifting clouds, and dimmer nighttime terrain and leaves. Torches and Jack'o Lanterns light nearby surface tiles at night. The cycle continues through saves and applies automatically to existing autumn worlds.

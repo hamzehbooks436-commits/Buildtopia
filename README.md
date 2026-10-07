@@ -93,3 +93,6 @@ Sky Market → Furniture & Home sells ten collectible, walk-through furnishings:
 Furniture is placed exactly like any other block: select it in Inventory or the hotbar, then right-click or press **E** on desktop, or tap an empty tile on touch devices. Normal reach, inventory consumption, occupied-space checks, world locks and family-house protection apply. Hold click/press to mine furniture and collect it again.
 
 Building Blocks now sells wood, brick, glass, background walls and ladders in bulk, plus a 150-gem Builder Pack containing 50 Wood Blocks, 50 Brick Blocks, 20 Glass Blocks, 50 Wood Background walls and 10 Ladders. Market categories have Prev/Next pages to keep cards readable on phones.
+
+
+Wooden Door: buy in Sky Market → Building Blocks for 20 gems. Place it like any other block to make a walk-through entrance. It stays in the same world and does not teleport players. Hold click/press to mine it and collect the door again.

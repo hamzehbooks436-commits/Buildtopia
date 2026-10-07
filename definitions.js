@@ -3,6 +3,7 @@ import { FURNITURE } from "./furniture.js";
 const BLOCK_2_4 = [{ count: 2, weight: 1 }, { count: 3, weight: 1 }, { count: 4, weight: 1 }];
 
 export const TILE_DEFS = {
+  108: { name: "Wooden Door", solid: false, furnitureId: "wooden_door", breakTime: 350, drops: [{ item: "wooden_door", count: 1 }], color: "#b78653" },
   0: { name: "Empty", solid: false, color: "transparent" },
   1: { name: "Dirt", solid: true, breakTime: 420, drops: [{ item: "dirt_seed", count: 1, chance: .5 }, { item: "dirt_block", count: 1, chance: .2 }], color: "#9f633f", sprite: [84, 12, 20, 20] },
   2: { name: "Rock", solid: true, breakTime: 1200, drops: [{ item: "rock_seed", count: 1, chance: .5 }, { item: "rock", count: 1, chance: .2 }, { item: "gems", count: 1, chance: .35 }], color: "#9992e4", sprite: [139, 12, 20, 20] },
@@ -119,6 +120,7 @@ export function spliceResult(firstTile, secondTile) {
 }
 
 export const ITEM_DEFS = {
+  wooden_door: { name: "Wooden Door", placesTile: 108, furnitureId: "wooden_door", color: "#b78653", description: "An open wooden doorway you can walk through. Place like a block; mine to collect and move it." },
   pumpkin_block: { name: "Pumpkin", placesTile: 81, color: "#e88a32", sprite: [4, 320, 20, 20], description: "Found in autumn worlds. Mining gives a Pumpkin and a 50% chance of one Pumpkin Crop." },
   pumpkin_seed: { name: "Pumpkin Crop", placesTile: 82, excludeFromSeedPackage: true, color: "#e88a32", sprite: [28, 320, 18, 18], description: "50% chance from pumpkins. Grows in 45 seconds. Splice with a Torch Crop for a Jack'o Lantern Crop." },
   jack_o_lantern: { name: "Jack'o Lantern", placesTile: 84, color: "#ffa64c", sprite: [74, 320, 20, 20], description: "A carved pumpkin that lights five nearby tiles. Grow from a Jack'o Lantern Crop." },
@@ -204,6 +206,7 @@ for (const [id, tile] of Object.entries(TILE_DEFS)) {
 export const SLOT_UPGRADE = { item: "inventory_slots", amount: 5, cost: 500 };
 
 export const SHOP_ITEMS = [
+  { item: "wooden_door", amount: 1, cost: 20 },
   ...FURNITURE.map(item => ({ item: item.id, amount: 1, cost: item.cost })),
   { item: "wood_block", amount: 25, cost: 25 },
   { item: "brick_block", amount: 25, cost: 40 },
@@ -239,7 +242,7 @@ export const SHOP_ITEMS = [
 export const SHOP_SECTIONS = [
   { id: "furniture", name: "Furniture & Home", icon: "soft_sofa", description: "Furniture, rugs, plants and lights", items: FURNITURE.map(item => item.id) },
   { id: "seeds", name: "Seeds & Growing", icon: "dirt_seed", description: "Seeds and surprise packages", items: ["seed_package", "dirt_seed", "moon_seed"] },
-  { id: "building", name: "Building Blocks", icon: "dirt_block", description: "Blocks, igloos and parkour packs", items: ["builder_package", "wood_block", "brick_block", "glass_block", "wood_background", "ladder", "dirt_block", "rock", "igloo_kit", "checkpoint_block", "parkour_package"] },
+  { id: "building", name: "Building Blocks", icon: "dirt_block", description: "Blocks, igloos and parkour packs", items: ["wooden_door", "builder_package", "wood_block", "brick_block", "glass_block", "wood_background", "ladder", "dirt_block", "rock", "igloo_kit", "checkpoint_block", "parkour_package"] },
   { id: "upgrades", name: "Tools & Upgrades", icon: "pickaxe", description: "Equipment, snowballs and upgrades", items: ["pickaxe", "snowball", "inventory_slots", "world_lock"] },
 ];
 

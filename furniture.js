@@ -13,11 +13,16 @@ export const FURNITURE = [
 ];
 
 export function drawFurniture(ctx, id, x, y, size) {
-  if (!FURNITURE.some(item => item.id === id)) return false;
+  if (id !== 'wooden_door' && !FURNITURE.some(item => item.id === id)) return false;
   ctx.save(); ctx.translate(x, y); ctx.scale(size / 20, size / 20);
   const rect = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
   const wood = '#a56f43', edge = '#68472e', light = '#dfb681';
-  if (id === 'wooden_chair') {
+  if (id === 'wooden_door') {
+    // An open leaf leaves the entrance visibly clear.
+    rect(edge, 1, 1, 18, 3); rect(edge, 1, 4, 3, 16); rect(edge, 16, 4, 3, 16);
+    rect(light, 2, 2, 16, 2); rect(wood, 2, 4, 2, 16); rect(wood, 16, 4, 2, 16);
+    rect('#81512f', 12, 5, 4, 14); rect('#be8953', 13, 6, 2, 12); rect('#f1d183', 12, 11, 1, 2);
+  } else if (id === 'wooden_chair') {
     rect(edge, 4, 3, 3, 16); rect(wood, 7, 4, 8, 6); rect(light, 7, 4, 8, 2);
     rect(edge, 4, 12, 13, 3); rect(wood, 5, 11, 12, 3); rect(edge, 14, 14, 2, 5);
   } else if (id === 'dining_table') {
